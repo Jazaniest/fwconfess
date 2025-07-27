@@ -1,0 +1,30 @@
+<!-- <% layout('layout', { title: 'User Management' }) %> -->
+<table class="w-full bg-white rounded shadow overflow-hidden">
+  <thead class="bg-gray-200">
+    <tr>
+      <th class="p-2">Telegram ID</th>
+      <th class="p-2">Rank</th>
+      <th class="p-2">Registered At</th>
+      <th class="p-2">Last Sent At</th>
+      <th class="p-2">Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% users.forEach(user => { %>
+      <tr class="border-b">
+        <td class="p-2"><%= user.telegram_id %></td>
+        <td class="p-2"><%= user.rank %></td>
+        <td class="p-2"><%= new Date(user.registered_at).toLocaleString() %></td>
+        <td class="p-2"><%= user.last_sent_at ? new Date(user.last_sent_at).toLocaleString() : '-' %></td>
+        <td class="p-2 space-x-2">
+          <form action="/admin/users/<%= user.telegram_id %>/suspend" method="POST" class="inline">
+            <button class="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600">Suspend</button>
+          </form>
+          <form action="/admin/users/<%= user.telegram_id %>/activate" method="POST" class="inline">
+            <button class="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600">Activate</button>
+          </form>
+        </td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>

@@ -1,0 +1,19 @@
+<!-- <% layout('layout', { title: 'Admin Logs' }) %> -->
+<table class="w-full bg-white rounded shadow">
+  <thead class="bg-gray-200">
+    <tr>
+      <th class="p-2">Action</th>
+      <th class="p-2">Target</th>
+      <th class="p-2">Timestamp</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% logs.forEach(log => { %>
+      <tr class="border-b">
+        <td class="p-2"><%= log.admin_action %></td>
+        <td class="p-2"><%= log.target %></td>
+        <td class="p-2"><%= new Date(log.created_at).toLocaleString() %></td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
