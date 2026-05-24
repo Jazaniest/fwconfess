@@ -316,7 +316,7 @@ export default function adminPanel(bot) {
       `👤 User ID: \`${debugInfo.userId}\`\n` +
       `⏰ Timestamp: \`${debugInfo.timestamp}\`\n` +
       `🕐 Uptime: \`${debugInfo.uptime}s\`\n` +
-      `💾 Memory Used: \`${Math.round(debugInfo.memory.used / 1024 / 1024)}MB\`\n` +
+      `💾 Memory Used: \`${Math.round(debugInfo.memory.heapUsed / 1024 / 1024)}MB\`\n` +
       `💾 Memory Total: \`${Math.round(debugInfo.memory.rss / 1024 / 1024)}MB\`\n` +
       `🟢 Node Version: \`${debugInfo.nodeVersion}\`\n\n` +
       `📋 *Environment Status:*\n` +
@@ -368,72 +368,66 @@ export default function adminPanel(bot) {
   // === UTILITY FUNCTIONS ===
 
   /**
-   * Database helper functions (implement sesuai dengan struktur database Anda)
+   * Database helper functions - mengambil data dari Database class
    */
   async function getTotalUsers() {
     try {
-      // return await Database.getTotalUsers();
-      return 'Loading...'; // Placeholder
+      return await Database.getTotalUsers();
     } catch (error) {
       console.error('Error getting total users:', error);
-      return 'Error';
+      return 0;
     }
   }
 
   async function getTotalConfessions() {
     try {
-      // return await Database.getTotalConfessions();
-      return 'Loading...'; // Placeholder
+      return await Database.getTotalConfessions();
     } catch (error) {
       console.error('Error getting total confessions:', error);
-      return 'Error';
+      return 0;
     }
   }
 
   async function getTotalComments() {
     try {
-      // return await Database.getTotalComments();
-      return 'Loading...'; // Placeholder
+      // Note: Method ini belum ada di Database class, tambahkan jika diperlukan
+      return 0;
     } catch (error) {
       console.error('Error getting total comments:', error);
-      return 'Error';
+      return 0;
     }
   }
 
   async function getActiveToday() {
     try {
-      // return await Database.getActiveToday();
-      return 'Loading...'; // Placeholder
+      return await Database.getActiveUsersToday();
     } catch (error) {
       console.error('Error getting active today:', error);
-      return 'Error';
+      return 0;
     }
   }
 
   async function getBannedUsers() {
     try {
-      // return await Database.getBannedUsersCount();
-      return 'Loading...'; // Placeholder
+      return await Database.getBannedUsersCount();
     } catch (error) {
       console.error('Error getting banned users:', error);
-      return 'Error';
+      return 0;
     }
   }
 
   async function getTotalReports() {
     try {
-      // return await Database.getTotalReports();
-      return 'Loading...'; // Placeholder
+      return await Database.getTotalReports();
     } catch (error) {
       console.error('Error getting total reports:', error);
-      return 'Error';
+      return 0;
     }
   }
 
   async function getRecentReports(limit = 5) {
     try {
-      // return await Database.getRecentReports(limit);
-      return []; // Placeholder
+      return await Database.getRecentReports(limit);
     } catch (error) {
       console.error('Error getting recent reports:', error);
       return [];
@@ -442,20 +436,14 @@ export default function adminPanel(bot) {
 
   async function getReportStats() {
     try {
-      // return await Database.getReportStats();
-      return {
-        total: 'Loading...',
-        pending: 'Loading...',
-        handled: 'Loading...',
-        rejected: 'Loading...'
-      }; // Placeholder
+      return await Database.getReportStats();
     } catch (error) {
       console.error('Error getting report stats:', error);
       return {
-        total: 'Error',
-        pending: 'Error',
-        handled: 'Error',
-        rejected: 'Error'
+        total: 0,
+        pending: 0,
+        handled: 0,
+        rejected: 0
       };
     }
   }
