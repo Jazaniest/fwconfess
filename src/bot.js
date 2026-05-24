@@ -33,6 +33,7 @@ export async function startBot() {
   const confess = confessCommand(bot, process.env.TARGET_CHANNEL_ID);
   profileCommand(bot);
   const hitMe = hitMeCommand(bot);
+  await hitMe.chatManager.syncSessionsWithDatabase();
   
   bot.on('text', async (ctx, next) => {
     // 1. Proses registrasi
@@ -45,6 +46,7 @@ export async function startBot() {
     }
     // 3. Proses anonymous chat
     if (hitMe.chatManager && hitMe.chatManager.isUserInChat(ctx.from.id)) {
+      if (ctx.chat.type !== 'private') return next(); // ← tambah ini
       return hitMe.chatManager.sendAnonymousMessage(ctx, ctx.from.id, ctx.message.text);
     }
     // 4. Default
