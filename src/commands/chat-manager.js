@@ -128,22 +128,7 @@ export class ChatManager {
       try {
         await ctx.telegram.sendMessage(
           receiverId,
-          `💬 *Anonymous Chat Message*\n\n` +
-          `**${senderDisplayName}:** ${text}\n\n` +
-          `━━━━━━━━━━━━━━━━━━━\n` +
-          `🎭 Kamu adalah: **${receiverLabel}**\n` +
-          `💡 Ketik balasan atau gunakan perintah di bawah`,
-          { 
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  { text: '🎭 Reveal', callback_data: `reveal_request_${sessionId}` },
-                  { text: '❌ End', callback_data: 'end_chat' }
-                ]
-              ]
-            }
-          }
+          `${text}\n\n`,
         );
         console.log(`Message successfully sent to receiver ${receiverId}`);
       } catch (sendError) {
@@ -159,13 +144,13 @@ export class ChatManager {
       }
 
       // Confirm message sent to sender
-      await ctx.reply(
-        '✅ *Pesan Terkirim!*\n\n' +
-        `📤 Pesan: "${text.length > 50 ? text.substring(0, 50) + '...' : text}"\n\n` +
-        '🤖 Bot telah meneruskan pesan kamu ke lawan chat\n' +
-        '⏳ Menunggu balasan...',
-        { parse_mode: 'Markdown' }
-      );
+      // await ctx.reply(
+      //   '✅ *Pesan Terkirim!*\n\n' +
+      //   `📤 Pesan: "${text.length > 50 ? text.substring(0, 50) + '...' : text}"\n\n` +
+      //   '🤖 Bot telah meneruskan pesan kamu ke lawan chat\n' +
+      //   '⏳ Menunggu balasan...',
+      //   { parse_mode: 'Markdown' }
+      // );
 
       console.log(`Anonymous message successfully processed for session ${sessionId}`);
       return true;
@@ -344,7 +329,10 @@ export class ChatManager {
 
       const commonKeyboard = {
         inline_keyboard: [
-          [{ text: '❌ End Chat', callback_data: 'end_chat' }]
+          [
+            { text: '🎭 Reveal', callback_data: `reveal_request_${sessionId}` },
+            { text: '❌ End Chat', callback_data: 'end_chat' }
+          ]
         ]
       };
 
