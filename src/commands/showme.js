@@ -25,105 +25,96 @@ export default function showMeHandler(bot) {
       const messageId = ctx.match[1];
       const requesterId = ctx.from.id;
 
-      console.log('👁️ Show Me button clicked by user:', requesterId, 'for message:', messageId);
-
-      // Check if requester is registered
       const requesterUser = await Database.getUserById(requesterId);
       if (!requesterUser) {
-        return ctx.reply(
-          '❌ Kamu belum terdaftar!\n\n' +
-          'Silakan daftar terlebih dahulu untuk menggunakan fitur Show Me.',
-          Markup.inlineKeyboard([
-            [Markup.button.callback('📝 Daftar Sekarang', 'btn_register')]
-          ])
+        // ✅ Kirim ke private peminta, bukan grup
+        return ctx.telegram.sendMessage(requesterId,
+          '❌ Kamu belum terdaftar!\n\nSilakan daftar terlebih dahulu.',
+          Markup.inlineKeyboard([[Markup.button.callback('📝 Daftar Sekarang', 'btn_register')]])
         );
       }
 
-      // ✅ FIX BUG #2: Nama method yang benar adalah getConfessionByChannelMessageId,
-      // bukan getConfessionByMessageId (yang tidak ada di database.js).
       const confession = await Database.getConfessionByChannelMessageId(messageId);
       if (!confession) {
-        console.log('❌ Confession not found for message:', messageId);
-        return ctx.reply('❌ Confession tidak ditemukan.');
+        return ctx.telegram.sendMessage(requesterId, '❌ Confession tidak ditemukan.');
       }
 
-      // ✅ FIX BUG #2 (lanjutan): Field di tabel confessions adalah `telegram_id`, bukan `user_id`
       const confessionOwnerId = confession.telegram_id;
 
-      // Check if user trying to show themselves
       if (requesterId === confessionOwnerId) {
-        return ctx.reply('❌ Kamu tidak bisa melakukan Show Me pada confession sendiri.');
+        return ctx.telegram.sendMessage(requesterId,
+          '❌ Kamu tidak bisa melakukan Show Me pada confession sendiri.'
+        );
       }
 
-      // Check if there's already a pending request
       const existingRequest = Array.from(pendingRequests.values()).find(
         req => req.fromUserId === requesterId && req.toUserId === confessionOwnerId && req.messageId === messageId
       );
-
       if (existingRequest) {
-        return ctx.reply('⏳ Kamu sudah mengirim permintaan Show Me untuk confession ini. Tunggu balasan dari pengirim menfess.');
+        return ctx.telegram.sendMessage(requesterId,
+          '⏳ Kamu sudah mengirim permintaan Show Me untuk confession ini.'
+        );
       }
 
       const requestId = generateRequestId();
+
+      // ✅ Kirim pesan "menunggu" ke private peminta, simpan messageId-nya
+      const sentMsg = await ctx.telegram.sendMessage(requesterId,
+        '📤 *Permintaan Show Me terkirim\\!*\n\n' +
+        '⏳ Menunggu persetujuan dari pengirim menfess\\.\\.\\.\n' +
+        '🕐 Permintaan akan kedaluwarsa dalam 24 jam\\.\n\n' +
+        '💡 Pesan ini akan diperbarui otomatis jika ada balasan\\.',
+        { parse_mode: 'MarkdownV2' }
+      );
+
       pendingRequests.set(requestId, {
         fromUserId: requesterId,
         toUserId: confessionOwnerId,
         messageId: messageId,
         timestamp: Date.now(),
-        requesterData: requesterUser
+        requesterData: requesterUser,
+        // ✅ Simpan messageId pesan "menunggu" untuk diedit nanti
+        pendingMsgId: sentMsg.message_id
       });
 
-      console.log('📨 Show Me request created:', requestId);
-
-      const notificationMessage =
-        `👁️ *PERMINTAAN SHOW ME*\n\n` +
-        `Seseorang ingin melihat data diri kamu dari confession yang kamu kirim.\n\n` +
-        `👤 **Data Peminta:**\n` +
-        `• Gender: ${getGenderEmoji(requesterUser.gender)} ${requesterUser.gender || 'Unknown'}\n` +
-        `• Rank: ${getRankEmoji(requesterUser.rank)} ${requesterUser.rank || 'Member'}\n` +
-        `• Origin: 📍 ${requesterUser.origin || 'Unknown'}\n\n` +
-        `⚠️ **Yang akan dibagikan jika kamu setuju:**\n` +
-        `• Username Telegram kamu\n` +
-        `• Data profil lengkap (gender, rank, origin)\n` +
-        `• Mereka bisa mengirim pesan langsung ke kamu\n\n` +
-        `🕐 Permintaan ini akan kedaluwarsa dalam 24 jam.`;
-
+      // Kirim notif ke owner confession
       try {
+        const notificationMessage =
+          `👁️ *PERMINTAAN SHOW ME*\n\n` +
+          `Seseorang ingin melihat data diri kamu dari confession yang kamu kirim\\.\n\n` +
+          `👤 *Data Peminta:*\n` +
+          `• Gender: ${getGenderEmoji(requesterUser.gender)} ${requesterUser.gender || 'Unknown'}\n` +
+          `• Rank: ${getRankEmoji(requesterUser.rank)} ${requesterUser.rank || 'Member'}\n` +
+          `• Origin: 📍 ${requesterUser.origin || 'Unknown'}\n\n` +
+          `🕐 Permintaan kedaluwarsa dalam 24 jam\\.`;
+
         await ctx.telegram.sendMessage(confessionOwnerId, notificationMessage, {
-          parse_mode: 'Markdown',
+          parse_mode: 'MarkdownV2',
           reply_markup: {
-            inline_keyboard: [
-              [
-                Markup.button.callback('✅ Setuju', `approve_show:${requestId}`),
-                Markup.button.callback('❌ Tolak', `reject_show:${requestId}`)
-              ]
-            ]
+            inline_keyboard: [[
+              Markup.button.callback('✅ Setuju', `approve_show:${requestId}`),
+              Markup.button.callback('❌ Tolak', `reject_show:${requestId}`)
+            ]]
           }
         });
 
-        await ctx.reply(
-          '📤 **Permintaan Show Me terkirim!**\n\n' +
-          '⏳ Menunggu persetujuan dari pengirim menfess...\n' +
-          '🕐 Permintaan akan kedaluwarsa dalam 24 jam.\n\n' +
-          '💡 Kamu akan mendapat notifikasi jika ada balasan.'
-        );
-
-        console.log('✅ Show Me request sent successfully');
-
       } catch (error) {
-        console.error('❌ Error sending show me request:', error);
         pendingRequests.delete(requestId);
+        const errMsg = error.code === 403
+          ? '❌ Pengirim confession telah memblokir bot. Show Me tidak dapat dilakukan.'
+          : '❌ Gagal mengirim permintaan Show Me. Silakan coba lagi nanti.';
 
-        if (error.code === 403) {
-          await ctx.reply('❌ Pengirim confession telah memblokir bot. Show Me tidak dapat dilakukan.');
-        } else {
-          await ctx.reply('❌ Gagal mengirim permintaan Show Me. Silakan coba lagi nanti.');
-        }
+        // ✅ Edit pesan "menunggu" menjadi pesan error
+        await ctx.telegram.editMessageText(
+          requesterId, sentMsg.message_id, undefined, errMsg
+        ).catch(() => ctx.telegram.sendMessage(requesterId, errMsg));
       }
 
     } catch (error) {
       console.error('❌ Error in show me handler:', error);
-      await ctx.reply('❌ Terjadi kesalahan. Silakan coba lagi nanti.');
+      // Fallback tetap ke private
+      await ctx.telegram.sendMessage(ctx.from.id, '❌ Terjadi kesalahan. Silakan coba lagi nanti.')
+        .catch(() => {});
     }
   });
 
@@ -137,19 +128,14 @@ export default function showMeHandler(bot) {
       const requestId = ctx.match[1];
       const approverId = ctx.from.id;
 
-      console.log('✅ Show Me request approved by:', approverId, 'for request:', requestId);
-
       const request = pendingRequests.get(requestId);
       if (!request) {
         return ctx.reply('❌ Permintaan Show Me tidak ditemukan atau sudah kedaluwarsa.');
       }
-
       if (request.toUserId !== approverId) {
         return ctx.reply('❌ Kamu tidak memiliki otoritas untuk menyetujui permintaan ini.');
       }
 
-      // ✅ FIX BUG #3: Ambil info Telegram (username, nama) dari Telegram API,
-      // karena getUserById tidak menyimpan username di database.
       const approverDbData = await Database.getUserById(approverId);
       if (!approverDbData) {
         return ctx.reply('❌ Data kamu tidak ditemukan di database.');
@@ -159,57 +145,49 @@ export default function showMeHandler(bot) {
       try {
         approverTelegramInfo = await ctx.telegram.getChat(approverId);
       } catch (err) {
-        console.error('❌ Error fetching Telegram info for approver:', err);
         return ctx.reply('❌ Gagal mengambil data Telegram kamu. Silakan coba lagi.');
       }
 
       pendingRequests.delete(requestId);
 
-      // ✅ FIX BUG #3: username diambil dari Telegram API, bukan dari DB
       const username = approverTelegramInfo.username;
       const approverDataMessage =
-        `✅ **PERMINTAAN SHOW ME DISETUJUI!**\n\n` +
-        `Pengirim menfess telah menyetujui untuk membagikan data diri mereka.\n\n` +
-        `👤 **Data Pengirim Menfess:**\n` +
+        `✅ *PERMINTAAN SHOW ME DISETUJUI\\!*\n\n` +
+        `Pengirim menfess telah menyetujui permintaan kamu\\.\n\n` +
+        `👤 *Data Pengirim Menfess:*\n` +
         `• Username: ${username ? '@' + username : 'Tidak tersedia'}\n` +
         `• Gender: ${getGenderEmoji(approverDbData.gender)} ${approverDbData.gender || 'Unknown'}\n` +
         `• Rank: ${getRankEmoji(approverDbData.rank)} ${approverDbData.rank || 'Member'}\n` +
         `• Origin: 📍 ${approverDbData.origin || 'Unknown'}\n\n` +
-        `🎉 Sekarang kamu bisa mengirim pesan langsung atau berinteraksi dengan mereka!`;
+        `🎉 Sekarang kamu bisa mengirim pesan langsung ke mereka\\!`;
 
-      // ✅ FIX BUG #3: Tombol URL hanya ditampilkan jika username tersedia,
-      // dan fallback menggunakan telegram_id (bukan user_id yang tidak ada)
       const replyMarkup = username
-        ? {
-            inline_keyboard: [
-              [Markup.button.url('💌 Kirim Pesan Langsung', `https://t.me/${username}`)]
-            ]
-          }
-        : {
-            inline_keyboard: [
-              [Markup.button.url('💌 Kirim Pesan via ID', `tg://user?id=${approverDbData.telegram_id}`)]
-            ]
-          };
+        ? { inline_keyboard: [[Markup.button.url('💌 Kirim Pesan Langsung', `https://t.me/${username}`)]] }
+        : { inline_keyboard: [[Markup.button.url('💌 Kirim Pesan via ID', `tg://user?id=${approverDbData.telegram_id}`)]] };
 
       try {
+        // ✅ Edit pesan "menunggu" yang sudah ada → ganti dengan data owner
+        await ctx.telegram.editMessageText(
+          request.fromUserId,
+          request.pendingMsgId,  // messageId pesan "menunggu" yang disimpan tadi
+          undefined,
+          approverDataMessage,
+          { parse_mode: 'MarkdownV2', reply_markup: replyMarkup }
+        );
+      } catch (editErr) {
+        // Fallback: kirim pesan baru jika edit gagal (pesan terlalu lama, dsb)
         await ctx.telegram.sendMessage(request.fromUserId, approverDataMessage, {
-          parse_mode: 'Markdown',
+          parse_mode: 'MarkdownV2',
           reply_markup: replyMarkup
         });
-
-        await ctx.reply(
-          '✅ **Data kamu berhasil dibagikan!**\n\n' +
-          `📤 Data diri kamu telah dikirim ke peminta Show Me.\n` +
-          `👤 Mereka sekarang bisa mengirim pesan langsung ke kamu.\n\n` +
-          `💡 **Tips:** Pastikan pengaturan privasi Telegram kamu memungkinkan pesan dari orang yang tidak dikenal.`
-        );
-
-        console.log('✅ Show Me data shared successfully');
-
-      } catch (error) {
-        console.error('❌ Error sharing show me data:', error);
-        await ctx.reply('❌ Gagal membagikan data. Silakan coba lagi nanti.');
       }
+
+      // Balas ke owner di private mereka sendiri
+      await ctx.reply(
+        '✅ Data kamu berhasil dibagikan\\!\n\n' +
+        'Mereka sekarang bisa mengirim pesan langsung ke kamu\\.',
+        { parse_mode: 'MarkdownV2' }
+      );
 
     } catch (error) {
       console.error('❌ Error in approve show me:', error);
@@ -227,38 +205,38 @@ export default function showMeHandler(bot) {
       const requestId = ctx.match[1];
       const rejecterId = ctx.from.id;
 
-      console.log('❌ Show Me request rejected by:', rejecterId, 'for request:', requestId);
-
       const request = pendingRequests.get(requestId);
       if (!request) {
         return ctx.reply('❌ Permintaan Show Me tidak ditemukan atau sudah kedaluwarsa.');
       }
-
       if (request.toUserId !== rejecterId) {
         return ctx.reply('❌ Kamu tidak memiliki otoritas untuk menolak permintaan ini.');
       }
 
       pendingRequests.delete(requestId);
 
+      const rejectionMsg =
+        '❌ *Permintaan Show Me Ditolak*\n\n' +
+        'Pengirim menfess menolak permintaan Show Me kamu\\.\n\n' +
+        '💡 Kamu masih bisa menggunakan fitur "Hit Me" untuk chat anonymous\\.';
+
       try {
-        await ctx.telegram.sendMessage(request.fromUserId,
-          '❌ **Permintaan Show Me Ditolak**\n\n' +
-          'Pengirim menfess telah menolak permintaan Show Me kamu.\n\n' +
-          '💡 Kamu masih bisa menggunakan fitur "Hit Me" untuk chat anonymous dengan mereka.'
+        // ✅ Edit pesan "menunggu" → ganti dengan notif penolakan
+        await ctx.telegram.editMessageText(
+          request.fromUserId,
+          request.pendingMsgId,
+          undefined,
+          rejectionMsg,
+          { parse_mode: 'MarkdownV2' }
         );
-
-        await ctx.reply(
-          '❌ **Permintaan Show Me berhasil ditolak.**\n\n' +
-          'Peminta telah diberitahu bahwa kamu menolak permintaan Show Me.\n\n' +
-          '🔒 Data diri kamu tetap aman dan tidak dibagikan.'
-        );
-
-        console.log('✅ Show Me request rejected successfully');
-
-      } catch (error) {
-        console.error('❌ Error notifying rejection:', error);
-        await ctx.reply('❌ Gagal memproses penolakan. Silakan coba lagi nanti.');
+      } catch {
+        await ctx.telegram.sendMessage(request.fromUserId, rejectionMsg, { parse_mode: 'MarkdownV2' });
       }
+
+      await ctx.reply(
+        '❌ Permintaan Show Me berhasil ditolak\\.\n\n🔒 Data diri kamu tetap aman\\.',
+        { parse_mode: 'MarkdownV2' }
+      );
 
     } catch (error) {
       console.error('❌ Error in reject show me:', error);
