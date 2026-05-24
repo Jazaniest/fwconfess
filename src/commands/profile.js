@@ -1,5 +1,5 @@
 import { Markup } from 'telegraf';
-import { supabase } from '../services/db.js';
+import { db } from '../services/db.js';
 
 /**
  * Handler untuk menampilkan profile user
@@ -28,34 +28,17 @@ export default function profileCommand(bot) {
     try {
       // Loading message
       const loadingMsg = await ctx.reply('⏳ Memuat profile...');
-      
-      // Query data user dari Supabase
-      const { data: user, error } = await supabase
-        .from('users')
-        .select('telegram_id, rank, gender, origin')
-        .eq('telegram_id', userId)
-        .single();
-      
+
+      // Query data user dari MySQL
+      const [rows] = await db.query(
+        'SELECT `telegram_id`, `rank`, `gender`, `origin` FROM `users` WHERE `telegram_id` = ?',
+        [userId]
+      );
+      const user = rows[0] || null;
+
       // Hapus loading message
       await ctx.deleteMessage(loadingMsg.message_id).catch(() => {});
-      
-      if (error && error.code === 'PGRST116') {
-        // User tidak ditemukan
-        await ctx.reply(
-          '❌ Profile tidak ditemukan!\n\n' +
-          'Sepertinya kamu belum terdaftar. Silakan daftar terlebih dahulu dengan menggunakan perintah /register.',
-          Markup.inlineKeyboard([
-            [Markup.button.callback('📝 Daftar Sekarang', 'btn_register')],
-            [Markup.button.callback('🏠 Kembali ke Menu', 'btn_back_to_start')]
-          ])
-        );
-        return;
-      }
-      
-      if (error) {
-        throw error;
-      }
-      
+
       if (!user) {
         await ctx.reply(
           '❌ Profile tidak ditemukan!\n\n' +
@@ -121,7 +104,6 @@ export default function profileCommand(bot) {
     try {
       await ctx.editMessageText(welcomeText, Markup.inlineKeyboard(buttons));
     } catch (error) {
-      // Jika gagal edit message, kirim pesan baru
       await ctx.reply(welcomeText, Markup.inlineKeyboard(buttons));
     }
   });
@@ -145,13 +127,13 @@ function formatProfile(user, telegramUser) {
          `${genderEmoji} *Gender:* ${user.gender || 'Tidak diset'}\n` +
          `🌍 *Asal:* ${user.origin || 'Tidak diset'}\n\n` +
          `📅 *Profile dilihat:* ${new Date().toLocaleDateString('id-ID', { 
-           weekday: 'long', 
-           year: 'numeric', 
-           month: 'long', 
-           day: 'numeric',
-           hour: '2-digit',
-           minute: '2-digit'
-         })}`;
+            weekday: 'long', 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          })}`;
 }
 
 /**
