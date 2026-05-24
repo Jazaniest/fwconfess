@@ -125,6 +125,21 @@ export default function startCommand(bot) {
     await showMainMenu(ctx);
   });
 
+  bot.command('menfess', membershipMiddleware, async (ctx) => {
+    const userId = ctx.from.id;
+    console.log(`📣 Menfess command from user: ${userId}`);
+
+    // Trigger action yang sama dengan btn_confess
+    await ctx.reply('📣 *Kirim Menfess*\n\nKlik tombol di bawah untuk mulai menulis confession kamu:', {
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [
+          [Markup.button.callback('✍️ Tulis Menfess', 'btn_confess')]
+        ]
+      }
+    });
+  });
+
   // Handler untuk tombol cek keanggotaan
   bot.action('check_membership', async (ctx) => {
     await ctx.answerCbQuery('Mengecek keanggotaan...');
