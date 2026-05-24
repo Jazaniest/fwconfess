@@ -46,7 +46,7 @@ export async function startBot() {
     }
     // 3. Proses anonymous chat
     if (hitMe.chatManager && hitMe.chatManager.isUserInChat(ctx.from.id)) {
-      if (ctx.chat.type !== 'private') return next(); // ← tambah ini
+      if (ctx.chat.type !== 'private') return next();
       return hitMe.chatManager.sendAnonymousMessage(ctx, ctx.from.id, ctx.message.text);
     }
     // 4. Default
