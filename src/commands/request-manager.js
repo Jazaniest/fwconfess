@@ -9,6 +9,7 @@ export class RequestManager {
     this.bot = bot;
     this.chatManager = chatManager;
     this.pendingHitMeRequests = new Map();
+    this.ownerQueues = new Map();
   }
 
   /**
@@ -83,49 +84,55 @@ export class RequestManager {
         confessionId: confession.id,
         timestamp: Date.now()
       });
-      console.log('Stored pending request, total pending:', this.pendingHitMeRequests.size);
 
-      // Get hitter info for display
-      const hitterInfo = await this.getHitterDisplayInfo(ctx, hitterId);
-      console.log('Got hitter info:', hitterInfo);
+      // ✅ Masukkan ke antrian owner
+      const queue = this.ownerQueues.get(confessionAuthorId) || [];
+      queue.push(requestId);
+      this.ownerQueues.set(confessionAuthorId, queue);
 
-      console.log('Sending approval request to confessor...');
-      // Send approval request to confession author
-      try {
-        await ctx.telegram.sendMessage(
-          confessionAuthorId,
-          `💝 *Hit Me Request!*\n\n` +
-          `🎯 Seseorang ingin chat dengan kamu terkait confession kamu!\n\n` +
-          `👤 **Info Penghit:**\n` +
-          `• Nama: ${hitterInfo.name}\n` +
-          `• Username: @${hitterInfo.username}\n` +
-          `• Gender: ${hitterInfo.gender}\n` +
-          `• Origin: ${hitterInfo.origin}\n` +
-          `• Rank: ${hitterInfo.rank}\n\n` +
-          `🤔 **Apakah kamu mau chat anonymous dengan orang ini?**\n\n` +
-          `✅ Jika setuju, kalian akan chat secara anonymous\n` +
-          `❌ Jika tidak, permintaan akan ditolak\n\n` +
-          `⏰ *Permintaan ini akan expired dalam 10 menit*`,
-          {
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [
+      console.log(`📋 Queue owner ${confessionAuthorId}: ${queue.length} request(s)`);
+
+      // ✅ Kirim notif ke owner HANYA jika ini request pertama di antrian
+      if (queue.length === 1) {
+        const hitterInfo = await this.getHitterDisplayInfo(ctx, hitterId);
+        console.log('Got hitter info:', hitterInfo);
+
+        console.log('Sending approval request to confessor...');
+        try {
+          await ctx.telegram.sendMessage(
+            confessionAuthorId,
+            `💝 *Hit Me Request!*\n\n` +
+            `🎯 Seseorang ingin chat dengan kamu terkait confession kamu!\n\n` +
+            `👤 **Info Hitter:**\n` +
+            `• Gender: ${hitterInfo.gender}\n` +
+            `• Origin: ${hitterInfo.origin}\n` +
+            `• Rank: ${hitterInfo.rank}\n\n` +
+            `🤔 **Apakah kamu mau chat anonymous dengan orang ini?**\n\n` +
+            `✅ Jika setuju, kalian akan chat secara anonymous\n` +
+            `❌ Jika tidak, permintaan akan ditolak\n\n` +
+            `⏰ *Permintaan ini akan expired dalam 10 menit*`,
+            {
+              parse_mode: 'Markdown',
+              link_preview_options: { is_disabled: true }, // Mencegah preview link otomatis jika ada teks sensitif
+              reply_markup: {
+                inline_keyboard: [[
                   { text: '✅ Terima', callback_data: `approve_hitme_${requestId}` },
                   { text: '❌ Tolak', callback_data: `decline_hitme_${requestId}` }
-                ]
-              ]
+                ]]
+              }
             }
-          }
-        );
-        console.log('Approval request sent to confessor successfully');
-      } catch (sendError) {
-        console.error('Error sending approval request to confessor:', sendError);
-        this.pendingHitMeRequests.delete(requestId);
-        return false;
+          );
+          console.log('Approval request sent to confessor successfully');
+        } catch (sendError) {
+          console.error('Error sending approval request to confessor:', sendError);
+          // Rollback data jika bot gagal mengirim pesan (misal: user memblokir bot)
+          this.pendingHitMeRequests.delete(requestId);
+          this.ownerQueues.set(confessionAuthorId, queue.filter(id => id !== requestId));
+          return false;
+        }
       }
 
-      // Notify hitter that request has been sent
+      // ✅ Notify hitter bahwa request terkirim
       const successMessage = '📤 *Permintaan Hit Me Terkirim!*\n\n' +
         '⏳ Permintaan kamu telah dikirim ke pembuat confession\n' +
         '🔔 Mereka akan mendapat notifikasi di bot pribadi\n' +
@@ -138,24 +145,13 @@ export class RequestManager {
         } else {
           await ctx.telegram.sendMessage(hitterId, successMessage, { parse_mode: 'Markdown' });
         }
-        console.log('Success message sent to hitter');
       } catch (notifyError) {
         console.error('Error sending success message to hitter:', notifyError);
       }
 
-      // Auto-expire request after 10 minutes
-      setTimeout(() => {
-        if (this.pendingHitMeRequests.has(requestId)) {
-          this.pendingHitMeRequests.delete(requestId);
-          console.log('Hit me request auto-expired:', requestId);
-        }
-      }, 10 * 60 * 1000);
-
-      console.log('Hit me request created successfully');
       return true;
-
     } catch (error) {
-      console.error('Error creating hit me request:', error);
+      console.error('Fatal error in createHitMeRequest:', error);
       return false;
     }
   }
@@ -212,13 +208,13 @@ export class RequestManager {
 
       if (hitterSession) {
         console.log('Hitter already has active session');
-        this.pendingHitMeRequests.delete(requestId);
+        await this.finishAndDequeue(ctx, confessionAuthorId, requestId);
         return ctx.editMessageText('❌ Penghit sudah dalam chat dengan orang lain.');
       }
 
       if (confessionOwnerSession) {
         console.log('Confession owner already has active session');
-        this.pendingHitMeRequests.delete(requestId);
+        await this.finishAndDequeue(ctx, confessionAuthorId, requestId);
         return ctx.editMessageText('❌ Kamu sudah dalam chat dengan orang lain.');
       }
 
@@ -228,7 +224,7 @@ export class RequestManager {
       console.log('Chat session created with ID:', session.id);
 
       // Remove from pending requests
-      this.pendingHitMeRequests.delete(requestId);
+      await this.finishAndDequeue(ctx, confessionAuthorId, requestId);
       console.log('Removed request from pending list');
 
       console.log('Updating approval message...');
@@ -312,7 +308,7 @@ export class RequestManager {
       console.log('Declining request for hitter:', hitterId);
 
       // Remove from pending requests
-      this.pendingHitMeRequests.delete(requestId);
+      await this.finishAndDequeue(ctx, request.confessionAuthorId, requestId);
       console.log('Removed request from pending list');
 
       // Notify confessor
@@ -353,6 +349,55 @@ export class RequestManager {
     }
   }
 
+  async finishAndDequeue(ctx, ownerId, doneRequestId) {
+    const queue = this.ownerQueues.get(ownerId) || [];
+    const newQueue = queue.filter(id => id !== doneRequestId);
+    this.pendingHitMeRequests.delete(doneRequestId);
+
+    if (newQueue.length === 0) {
+      this.ownerQueues.delete(ownerId);
+      return;
+    }
+
+    this.ownerQueues.set(ownerId, newQueue);
+
+    const nextRequestId = newQueue[0];
+    const nextRequest = this.pendingHitMeRequests.get(nextRequestId);
+    if (!nextRequest) {
+      await this.finishAndDequeue(ctx, ownerId, nextRequestId);
+      return;
+    }
+
+    try {
+      const hitterInfo = await this.getHitterDisplayInfo(ctx, nextRequest.hitterId);
+
+      await ctx.telegram.sendMessage(
+        ownerId,
+        `💝 *Hit Me Request!*\n\n` +
+        `🎯 Seseorang ingin chat dengan kamu terkait confession kamu!\n\n` +
+        `👤 **Info Hitter:**\n` +
+        `• Gender: ${hitterInfo.gender}\n` +
+        `• Origin: ${hitterInfo.origin}\n` +
+        `• Rank: ${hitterInfo.rank}\n\n` +
+        `🤔 **Apakah kamu mau chat anonymous dengan orang ini?**\n\n` +
+        `✅ Jika setuju, kalian akan chat secara anonymous\n` +
+        `❌ Jika tidak, permintaan akan ditolak\n\n` +
+        `⏰ *Permintaan ini akan expired dalam 10 menit*`,
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [[
+              { text: '✅ Terima', callback_data: `approve_hitme_${nextRequestId}` },
+              { text: '❌ Tolak', callback_data: `decline_hitme_${nextRequestId}` }
+            ]]
+          }
+        }
+      );
+    } catch (err) {
+      console.error('Error sending next queued hit me request:', err);
+      await this.finishAndDequeue(ctx, ownerId, nextRequestId);
+    }
+  }
   /**
    * Cleanup expired requests
    */
@@ -360,11 +405,19 @@ export class RequestManager {
     const now = Date.now();
     let cleanedCount = 0;
 
-    for (const [requestId, request] of this.pendingHitMeRequests.entries()) {
-      if (now - request.timestamp > 10 * 60 * 1000) { // 10 minutes
+    for (const [requestId, request] of Array.from(this.pendingHitMeRequests.entries())) {
+      if (now - request.timestamp > 10 * 60 * 1000) {
         this.pendingHitMeRequests.delete(requestId);
         cleanedCount++;
-        console.log('Expired hit me request removed:', requestId);
+
+        // ✅ BARU: bersihkan dari ownerQueues juga
+        const ownerId = request.confessionAuthorId;
+        const queue = this.ownerQueues.get(ownerId);
+        if (queue) {
+          const newQueue = queue.filter(id => id !== requestId);
+          if (newQueue.length === 0) this.ownerQueues.delete(ownerId);
+          else this.ownerQueues.set(ownerId, newQueue);
+        }
       }
     }
 
