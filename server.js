@@ -4,7 +4,7 @@ import session from 'express-session';
 import dotenv from 'dotenv';
 import path from 'path';
 import { startBot } from './src/bot.js';
-import { supabase } from './src/supabaseClient.js';
+import { db } from './src/services/db.js';
 
 dotenv.config();
 
@@ -26,53 +26,128 @@ app.get('/', (req, res) => res.send('✅ Bot is alive!'));
 app.get('/admin', (req, res) => res.redirect('/admin/users'));
 
 // --- Admin Panel Routes ---
+
 app.get('/admin/users', async (req, res) => {
-  const { data: users } = await supabase.from('users').select('*');
-  res.render('users', { title: 'User Management', users });
+  try {
+    const [users] = await db.query('SELECT * FROM users');
+    res.render('users', { title: 'User Management', users });
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).send('Gagal memuat data users.');
+  }
 });
 
 app.post('/admin/users/:telegram_id/suspend', async (req, res) => {
-  const telegram_id = req.params.telegram_id;
-  await supabase.from('users').update({ is_active: false }).eq('telegram_id', telegram_id);
-  await supabase.from('admin_logs').insert([{ admin_action: 'user_suspend', target: telegram_id.toString() }]);
-  res.redirect('/admin/users');
+  try {
+    const { telegram_id } = req.params;
+    await db.query(
+      'UPDATE users SET is_active = 0 WHERE telegram_id = ?',
+      [telegram_id]
+    );
+    await db.query(
+      'INSERT INTO admin_logs (admin_action, target) VALUES (?, ?)',
+      ['user_suspend', telegram_id]
+    );
+    res.redirect('/admin/users');
+  } catch (error) {
+    console.error('Error suspending user:', error);
+    res.status(500).send('Gagal suspend user.');
+  }
 });
 
 app.post('/admin/users/:telegram_id/activate', async (req, res) => {
-  const telegram_id = req.params.telegram_id;
-  await supabase.from('users').update({ is_active: true }).eq('telegram_id', telegram_id);
-  await supabase.from('admin_logs').insert([{ admin_action: 'user_activate', target: telegram_id.toString() }]);
-  res.redirect('/admin/users');
+  try {
+    const { telegram_id } = req.params;
+    await db.query(
+      'UPDATE users SET is_active = 1 WHERE telegram_id = ?',
+      [telegram_id]
+    );
+    await db.query(
+      'INSERT INTO admin_logs (admin_action, target) VALUES (?, ?)',
+      ['user_activate', telegram_id]
+    );
+    res.redirect('/admin/users');
+  } catch (error) {
+    console.error('Error activating user:', error);
+    res.status(500).send('Gagal aktivasi user.');
+  }
 });
 
-app.get('/admin/broadcast', (req, res) => res.render('broadcast', { title: 'Broadcast Message' }));
+app.get('/admin/broadcast', (req, res) => {
+  res.render('broadcast', { title: 'Broadcast Message' });
+});
+
 app.post('/admin/broadcast', async (req, res) => {
-  const { message_text } = req.body;
-  await supabase.from('broadcasts').insert([{ message_text }]);
-  await supabase.from('admin_logs').insert([{ admin_action: 'broadcast_send', target: 'all' }]);
-  res.redirect('/admin/broadcast');
+  try {
+    const { message_text } = req.body;
+    await db.query(
+      'INSERT INTO broadcasts (message_text) VALUES (?)',
+      [message_text]
+    );
+    await db.query(
+      'INSERT INTO admin_logs (admin_action, target) VALUES (?, ?)',
+      ['broadcast_send', 'all']
+    );
+    res.redirect('/admin/broadcast');
+  } catch (error) {
+    console.error('Error sending broadcast:', error);
+    res.status(500).send('Gagal mengirim broadcast.');
+  }
 });
 
 app.get('/admin/statistics', async (req, res) => {
-  const { count: totalUsers } = await supabase.from('users').select('*', { count: 'exact' });
-  const { count: totalMessages } = await supabase.from('anonymous_messages').select('*', { count: 'exact' });
-  res.render('statistics', { title: 'Statistics', totalUsers, totalMessages });
+  try {
+    const [[{ totalUsers }]] = await db.query(
+      'SELECT COUNT(*) AS totalUsers FROM users'
+    );
+    const [[{ totalMessages }]] = await db.query(
+      'SELECT COUNT(*) AS totalMessages FROM anonymous_messages'
+    );
+    res.render('statistics', { title: 'Statistics', totalUsers, totalMessages });
+  } catch (error) {
+    console.error('Error fetching statistics:', error);
+    res.status(500).send('Gagal memuat statistik.');
+  }
 });
 
 app.get('/admin/logs', async (req, res) => {
-  const { data: logs } = await supabase.from('admin_logs').select('*').order('created_at', { ascending: false });
-  res.render('logs', { title: 'Admin Logs', logs });
+  try {
+    const [logs] = await db.query(
+      'SELECT * FROM admin_logs ORDER BY created_at DESC'
+    );
+    res.render('logs', { title: 'Admin Logs', logs });
+  } catch (error) {
+    console.error('Error fetching logs:', error);
+    res.status(500).send('Gagal memuat logs.');
+  }
 });
 
 app.get('/admin/blacklist', async (req, res) => {
-  const { data: words } = await supabase.from('blacklist_words').select('*');
-  res.render('blacklist', { title: 'Blacklist Words', words });
+  try {
+    const [words] = await db.query('SELECT * FROM blacklist_words');
+    res.render('blacklist', { title: 'Blacklist Words', words });
+  } catch (error) {
+    console.error('Error fetching blacklist:', error);
+    res.status(500).send('Gagal memuat blacklist.');
+  }
 });
+
 app.post('/admin/blacklist', async (req, res) => {
-  const { word } = req.body;
-  await supabase.from('blacklist_words').insert([{ word }]);
-  await supabase.from('admin_logs').insert([{ admin_action: 'blacklist_add', target: word }]);
-  res.redirect('/admin/blacklist');
+  try {
+    const { word } = req.body;
+    await db.query(
+      'INSERT INTO blacklist_words (word) VALUES (?)',
+      [word]
+    );
+    await db.query(
+      'INSERT INTO admin_logs (admin_action, target) VALUES (?, ?)',
+      ['blacklist_add', word]
+    );
+    res.redirect('/admin/blacklist');
+  } catch (error) {
+    console.error('Error adding blacklist word:', error);
+    res.status(500).send('Gagal menambah kata blacklist.');
+  }
 });
 
 const PORT = process.env.PORT || 3000;
