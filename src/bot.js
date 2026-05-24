@@ -53,6 +53,27 @@ export async function startBot() {
     return next();
   });
 
+  await bot.telegram.setMyCommands([
+    {
+      command: 'start',
+      description: 'Mulai bot'
+    },
+    {
+      command: 'menfess',
+      description: 'Kirim menfess'
+    },
+    {
+      command: 'profile',
+      description: 'Lihat profil'
+    }
+  ]);
+
+  await bot.telegram.setChatMenuButton({
+    menu_button: {
+      type: 'commands'
+    }
+  });
+
   // Jalankan polling
   await bot.launch();
   console.log('🤖 Bot menfess sudah berjalan (polling)');
