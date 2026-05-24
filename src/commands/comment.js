@@ -35,7 +35,7 @@ export default function commentHandler(bot, discussionGroupId) {
       // Format URL untuk thread komentar
       // Hapus tanda minus dari group ID jika ada
       const groupId = discussionGroupId.toString().replace('-100', '');
-      const commentUrl = `https://t.me/c/${groupId}/${groupMessage.message_id}?thread=${groupMessage.message_id}`;
+      const commentUrl = `https://t.me/c/${groupId}/${groupMessage.message_id}/${groupMessage.message_id}`;
       
       console.log('🔗 Comment URL generated:', commentUrl);
       
