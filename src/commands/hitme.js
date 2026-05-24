@@ -5,6 +5,17 @@ import { RevealManager } from './reveal-manager.js';
 import { RequestManager } from './request-manager.js';
 
 /**
+ * ✅ FIX BUG #6: Helper isAdmin terpusat, pakai ADMIN_ID dari env — bukan cek rank DB.
+ * Sebelumnya semua command cek `user.rank !== 'Admin'` (kapital), padahal rank di DB
+ * disimpan lowercase ('admin'). Selain itu admin_id dari env jauh lebih aman dan
+ * tidak bergantung pada data di database yang bisa berubah.
+ */
+function isAdminUser(userId) {
+  const adminId = process.env.ADMIN_ID;
+  return adminId && userId.toString() === adminId.toString();
+}
+
+/**
  * Handler untuk fitur Hit Me dan Anonymous Chat
  * @param {Telegraf} bot
  */
@@ -17,20 +28,10 @@ export default function hitMeCommand(bot) {
 
   console.log('Managers created, setting up handlers...');
 
-  // Setup all handlers FIRST before any other logic
-  console.log('Setting up request handlers...');
   requestManager.setupHandlers();
-
-  console.log('Setting up chat message handlers...');
   chatManager.setupMessageHandler();
-
-  console.log('Setting up reveal handlers...');
   revealManager.setupHandlers();
-
-  console.log('Setting up chat management handlers...');
   setupChatManagementHandlers(bot, chatManager);
-
-  console.log('Setting up admin handlers...');
   setupAdminHandlers(bot, chatManager, requestManager);
 
   // Handler untuk tombol Hit Me
@@ -43,27 +44,21 @@ export default function hitMeCommand(bot) {
       console.log('Hit Me clicked by:', hitterId, 'for confession by:', confessionAuthorId);
       console.log('Chat type:', ctx.chat.type);
 
-      // Check if this is from a group/channel - if so, only send private message
       if (ctx.chat.type !== 'private') {
-        console.log('Hit Me clicked from group/channel, redirecting to private');
-        // Answer callback query with minimal response to prevent group notification
         await ctx.answerCbQuery('🔄 Memproses Hit Me...', false);
 
-        // Send all responses to private chat only
         try {
           await processHitMeRequest(ctx, confessionAuthorId, hitterId, requestManager);
         } catch (privateError) {
           console.error('Error sending private message:', privateError);
-          // If can't send private message, answer callback query with instruction
           await ctx.answerCbQuery(
-            '⚠️ Mohon start chat dengan bot terlebih dahulu untuk menggunakan Hit Me!', 
+            '⚠️ Mohon start chat dengan bot terlebih dahulu untuk menggunakan Hit Me!',
             true
           );
         }
         return;
       }
 
-      // If this is already in private chat, process normally
       await ctx.answerCbQuery();
       await processHitMeRequest(ctx, confessionAuthorId, hitterId, requestManager);
 
@@ -79,15 +74,11 @@ export default function hitMeCommand(bot) {
   async function processHitMeRequest(ctx, confessionAuthorId, hitterId, requestManager) {
     try {
       console.log('=== PROCESSING HIT ME REQUEST ===');
-      console.log('Confessor ID:', confessionAuthorId);
-      console.log('Hitter ID:', hitterId);
 
-      // Validation checks
       const validationResult = await validateHitMeRequest(confessionAuthorId, hitterId);
       console.log('Validation result:', validationResult.valid ? 'PASSED' : 'FAILED');
 
       if (!validationResult.valid) {
-        console.log('Validation failed:', validationResult.message);
         const message = validationResult.message;
         const keyboard = validationResult.keyboard;
 
@@ -98,25 +89,20 @@ export default function hitMeCommand(bot) {
         }
       }
 
-      console.log('Creating hit me request...');
-      // Create and send hit me request
       const success = await requestManager.createHitMeRequest(
-        ctx, 
-        confessionAuthorId, 
-        hitterId, 
+        ctx,
+        confessionAuthorId,
+        hitterId,
         validationResult.confession
       );
 
       if (!success) {
-        console.log('Failed to create hit me request');
         const errorMessage = '❌ Terjadi kesalahan saat membuat permintaan. Silakan coba lagi.';
         if (ctx.chat.type === 'private') {
           await ctx.reply(errorMessage);
         } else {
           await ctx.telegram.sendMessage(hitterId, errorMessage);
         }
-      } else {
-        console.log('Hit me request created successfully');
       }
 
     } catch (error) {
@@ -138,15 +124,10 @@ export default function hitMeCommand(bot) {
     try {
       console.log('=== VALIDATING HIT ME REQUEST ===');
 
-      // First, sync sessions to clean up any orphaned data
-      console.log('Syncing sessions with database...');
       await chatManager.syncSessionsWithDatabase();
 
-      // Check if hitter is registered
-      console.log('Checking if hitter is registered...');
       const hitter = await Database.getUserById(hitterId);
       if (!hitter) {
-        console.log('Hitter not registered');
         return {
           valid: false,
           message: '❌ Kamu belum terdaftar!\n\nSilakan daftar terlebih dahulu untuk bisa menggunakan fitur Hit Me.',
@@ -155,45 +136,25 @@ export default function hitMeCommand(bot) {
           ])
         };
       }
-      console.log('Hitter is registered');
 
-      // Check if trying to hit own confession
       if (confessionAuthorId === hitterId) {
-        console.log('User trying to hit own confession');
-        return {
-          valid: false,
-          message: '❌ Kamu tidak bisa hit confession sendiri!'
-        };
+        return { valid: false, message: '❌ Kamu tidak bisa hit confession sendiri!' };
       }
 
-      // Check if confessor is registered
-      console.log('Checking if confessor is registered...');
       const confessor = await Database.getUserById(confessionAuthorId);
       if (!confessor) {
-        console.log('Confessor not found or not registered');
-        return {
-          valid: false,
-          message: '❌ Pembuat confession tidak ditemukan atau belum terdaftar.'
-        };
+        return { valid: false, message: '❌ Pembuat confession tidak ditemukan atau belum terdaftar.' };
       }
-      console.log('Confessor is registered');
 
-      // Check if hitter already has active chat (check both memory and database)
-      console.log('Checking if hitter has active chat...');
+      // Cek dan bersihkan session hitter yang orphaned
       const hitterInMemory = chatManager.isUserInChat(hitterId);
       const existingHitterSession = await Database.getActiveChatSession(hitterId);
 
-      console.log(`Hitter ${hitterId}: in_memory=${hitterInMemory}, db_session=${!!existingHitterSession}`);
-
-      // If there's a mismatch, clean it up
       if (existingHitterSession && !hitterInMemory) {
-        console.log('Found orphaned database session for hitter, cleaning up...');
         await chatManager.forceCleanupUserSession(hitterId);
       } else if (!existingHitterSession && hitterInMemory) {
-        console.log('Found orphaned memory entry for hitter, cleaning up...');
         await chatManager.forceCleanupUserSession(hitterId);
       } else if (existingHitterSession && hitterInMemory) {
-        console.log('Hitter already has active chat session');
         return {
           valid: false,
           message: '⚠️ Kamu sudah memiliki chat session yang aktif!\n\nSelesaikan chat yang sedang berlangsung terlebih dahulu.',
@@ -205,60 +166,34 @@ export default function hitMeCommand(bot) {
         };
       }
 
-      // Check if confessor already has active chat (check both memory and database)  
-      console.log('Checking if confessor has active chat...');
+      // Cek dan bersihkan session confessor yang orphaned
       const confessorInMemory = chatManager.isUserInChat(confessionAuthorId);
       const confessionOwnerSession = await Database.getActiveChatSession(confessionAuthorId);
 
-      console.log(`Confessor ${confessionAuthorId}: in_memory=${confessorInMemory}, db_session=${!!confessionOwnerSession}`);
-
-      // If there's a mismatch, clean it up
       if (confessionOwnerSession && !confessorInMemory) {
-        console.log('Found orphaned database session for confessor, cleaning up...');
         await chatManager.forceCleanupUserSession(confessionAuthorId);
       } else if (!confessionOwnerSession && confessorInMemory) {
-        console.log('Found orphaned memory entry for confessor, cleaning up...');
         await chatManager.forceCleanupUserSession(confessionAuthorId);
       } else if (confessionOwnerSession && confessorInMemory) {
-        console.log('Confessor already has active chat session');
-        return {
-          valid: false,
-          message: '❌ Pembuat confession sedang dalam chat dengan user lain. Coba lagi nanti.'
-        };
+        return { valid: false, message: '❌ Pembuat confession sedang dalam chat dengan user lain. Coba lagi nanti.' };
       }
 
-      // Get confession data
-      console.log('Getting confession data...');
-      let confession = await Database.getLatestConfessionByUserId(confessionAuthorId);
+      const confession = await Database.getLatestConfessionByUserId(confessionAuthorId);
       if (!confession) {
-        console.log('Confession not found');
-        return {
-          valid: false,
-          message: '❌ Data confession tidak ditemukan.'
-        };
+        return { valid: false, message: '❌ Data confession tidak ditemukan.' };
       }
 
-      console.log('All validations passed');
-      return {
-        valid: true,
-        confession: confession
-      };
+      return { valid: true, confession };
 
     } catch (error) {
       console.error('Error in validation:', error);
-      return {
-        valid: false,
-        message: '❌ Terjadi kesalahan saat validasi. Silakan coba lagi.'
-      };
+      return { valid: false, message: '❌ Terjadi kesalahan saat validasi. Silakan coba lagi.' };
     }
   }
 
-  console.log('Setting up cleanup...');
   setupCleanup(chatManager, requestManager);
-
   console.log('=== Hit Me command initialization complete ===');
 
-  // Return utility functions
   return {
     chatManager,
     revealManager,
@@ -276,35 +211,26 @@ export default function hitMeCommand(bot) {
   };
 }
 
-/**
- * Setup chat management handlers
- */
+// ─── Chat Management Handlers ────────────────────────────────────────────────
+
 function setupChatManagementHandlers(bot, chatManager) {
   console.log('Setting up chat management handlers...');
 
-  // Handler untuk end chat
   bot.command('endchat', async (ctx) => {
-    console.log('End chat command received from user:', ctx.from.id);
-    if (ctx.chat.type !== 'private') {
-      console.log('End chat command from non-private chat, ignoring');
-      return;
-    }
+    if (ctx.chat.type !== 'private') return;
     await chatManager.endChatSession(ctx, ctx.from.id);
   });
 
   bot.action('end_chat', async (ctx) => {
-    console.log('End chat button clicked by user:', ctx.from.id);
     await ctx.answerCbQuery();
     await chatManager.endChatSession(ctx, ctx.from.id);
   });
 
   bot.action('continue_chat', async (ctx) => {
-    console.log('Continue chat button clicked by user:', ctx.from.id);
     await ctx.answerCbQuery();
     await ctx.reply(
       '💬 *Chat Anonymous Berlanjut*\n\n' +
       'Ketik pesan untuk melanjutkan percakapan dengan lawan chat kamu.\n\n' +
-      '🤖 Bot akan meneruskan pesan kamu ke lawan chat\n\n' +
       '💡 *Perintah yang tersedia:*\n' +
       '• `/reveal` - Minta reveal identitas\n' +
       '• `/endchat` - Akhiri percakapan',
@@ -312,21 +238,15 @@ function setupChatManagementHandlers(bot, chatManager) {
     );
   });
 
-  // Handler untuk force cleanup
   bot.action(/^force_cleanup_(\d+)$/, async (ctx) => {
     try {
-      console.log('Force cleanup button clicked by user:', ctx.from.id);
       await ctx.answerCbQuery();
-
       const targetUserId = parseInt(ctx.match[1]);
       const currentUserId = ctx.from.id;
 
-      // Only allow user to cleanup their own session
       if (targetUserId !== currentUserId) {
         return ctx.reply('❌ Kamu hanya bisa cleanup session sendiri.');
       }
-
-      console.log(`Force cleanup requested for user: ${targetUserId}`);
 
       const success = await chatManager.forceCleanupUserSession(targetUserId);
       if (success) {
@@ -339,7 +259,6 @@ function setupChatManagementHandlers(bot, chatManager) {
       } else {
         await ctx.reply('❌ Gagal cleanup session. Silakan coba lagi atau hubungi admin.');
       }
-
     } catch (error) {
       console.error('Error in force cleanup handler:', error);
       await ctx.reply('❌ Terjadi kesalahan saat cleanup session.');
@@ -349,22 +268,18 @@ function setupChatManagementHandlers(bot, chatManager) {
   console.log('Chat management handlers set up successfully');
 }
 
-/**
- * Setup admin handlers
- */
+// ─── Admin Handlers ───────────────────────────────────────────────────────────
+
 function setupAdminHandlers(bot, chatManager, requestManager) {
   console.log('Setting up admin handlers...');
 
-  // Command untuk debug dan admin
+  // ✅ FIX BUG #6: Semua pengecekan admin diganti dari `user.rank !== 'Admin'`
+  // (yang selalu gagal karena DB simpan lowercase 'admin') menjadi isAdminUser()
+  // yang cek ADMIN_ID dari env — konsisten, tidak bergantung kolom rank di DB.
+
   bot.command('chatstatus', async (ctx) => {
     if (ctx.chat.type !== 'private') return;
-
-    const userId = ctx.from.id;
-    const user = await Database.getUserById(userId);
-
-    if (!user || user.rank !== 'Admin') {
-      return ctx.reply('❌ Command ini hanya untuk admin.');
-    }
+    if (!isAdminUser(ctx.from.id)) return ctx.reply('❌ Command ini hanya untuk admin.');
 
     const activeCount = chatManager.getActiveSessionCount();
     const pendingCount = requestManager.getPendingRequestCount();
@@ -389,119 +304,77 @@ function setupAdminHandlers(bot, chatManager, requestManager) {
     await ctx.reply(statusMessage, { parse_mode: 'Markdown' });
   });
 
-  // Command untuk force end session (admin only)
   bot.command('forceend', async (ctx) => {
     if (ctx.chat.type !== 'private') return;
-
-    const userId = ctx.from.id;
-    const user = await Database.getUserById(userId);
-
-    if (!user || user.rank !== 'Admin') {
-      return ctx.reply('❌ Command ini hanya untuk admin.');
-    }
+    if (!isAdminUser(ctx.from.id)) return ctx.reply('❌ Command ini hanya untuk admin.');
 
     const args = ctx.message.text.split(' ');
-    if (args.length < 2) {
-      return ctx.reply('❌ Gunakan: /forceend <user_id>');
-    }
+    if (args.length < 2) return ctx.reply('❌ Gunakan: /forceend <user_id>');
 
     const targetUserId = parseInt(args[1]);
-    if (isNaN(targetUserId)) {
-      return ctx.reply('❌ User ID harus berupa angka.');
-    }
+    if (isNaN(targetUserId)) return ctx.reply('❌ User ID harus berupa angka.');
 
     const success = await chatManager.forceEndSession(targetUserId);
-    if (success) {
-      await ctx.reply(`✅ Session untuk user ${targetUserId} berhasil diakhiri.`);
-    } else {
-      await ctx.reply(`❌ User ${targetUserId} tidak sedang dalam chat session.`);
-    }
+    await ctx.reply(
+      success
+        ? `✅ Session untuk user ${targetUserId} berhasil diakhiri.`
+        : `❌ User ${targetUserId} tidak sedang dalam chat session.`
+    );
   });
 
-  // Debug command untuk melihat active users
   bot.command('debugchat', async (ctx) => {
     if (ctx.chat.type !== 'private') return;
-
-    const userId = ctx.from.id;
-    const user = await Database.getUserById(userId);
-
-    if (!user || user.rank !== 'Admin') {
-      return ctx.reply('❌ Command ini hanya untuk admin.');
-    }
+    if (!isAdminUser(ctx.from.id)) return ctx.reply('❌ Command ini hanya untuk admin.');
 
     chatManager.debugActiveUsers();
     await ctx.reply('🔍 Debug info printed to console. Check server logs.');
   });
 
-  // Admin command untuk sync sessions
   bot.command('syncsessions', async (ctx) => {
     if (ctx.chat.type !== 'private') return;
-
-    const userId = ctx.from.id;
-    const user = await Database.getUserById(userId);
-
-    if (!user || user.rank !== 'Admin') {
-      return ctx.reply('❌ Command ini hanya untuk admin.');
-    }
+    if (!isAdminUser(ctx.from.id)) return ctx.reply('❌ Command ini hanya untuk admin.');
 
     await ctx.reply('🔄 Syncing sessions with database...');
     await chatManager.syncSessionsWithDatabase();
     await ctx.reply('✅ Sessions synced successfully!');
   });
 
-  // Admin command untuk force cleanup user
   bot.command('forceuser', async (ctx) => {
     if (ctx.chat.type !== 'private') return;
-
-    const userId = ctx.from.id;
-    const user = await Database.getUserById(userId);
-
-    if (!user || user.rank !== 'Admin') {
-      return ctx.reply('❌ Command ini hanya untuk admin.');
-    }
+    if (!isAdminUser(ctx.from.id)) return ctx.reply('❌ Command ini hanya untuk admin.');
 
     const args = ctx.message.text.split(' ');
-    if (args.length < 2) {
-      return ctx.reply('❌ Gunakan: /forceuser <user_id>');
-    }
+    if (args.length < 2) return ctx.reply('❌ Gunakan: /forceuser <user_id>');
 
     const targetUserId = parseInt(args[1]);
-    if (isNaN(targetUserId)) {
-      return ctx.reply('❌ User ID harus berupa angka.');
-    }
+    if (isNaN(targetUserId)) return ctx.reply('❌ User ID harus berupa angka.');
 
     const success = await chatManager.forceCleanupUserSession(targetUserId);
-    if (success) {
-      await ctx.reply(`✅ Force cleanup untuk user ${targetUserId} berhasil.`);
-    } else {
-      await ctx.reply(`❌ Gagal force cleanup untuk user ${targetUserId}.`);
-    }
+    await ctx.reply(
+      success
+        ? `✅ Force cleanup untuk user ${targetUserId} berhasil.`
+        : `❌ Gagal force cleanup untuk user ${targetUserId}.`
+    );
   });
 
   console.log('Admin handlers set up successfully');
 }
 
-/**
- * Setup cleanup interval
- */
-function setupCleanup(chatManager, requestManager) {
-  console.log('Setting up cleanup interval...');
+// ─── Cleanup Interval ─────────────────────────────────────────────────────────
 
+function setupCleanup(chatManager, requestManager) {
   setInterval(async () => {
     try {
-      console.log('Running scheduled cleanup...');
-
-      // Cleanup expired requests
       await requestManager.cleanupExpiredRequests();
-
-      // Cleanup inactive sessions
       await chatManager.cleanupInactiveSessions();
-
-      console.log('Cleanup completed - Active sessions:', chatManager.getActiveSessionCount(), 'Pending requests:', requestManager.getPendingRequestCount());
+      console.log(
+        'Cleanup completed - Active sessions:',
+        chatManager.getActiveSessionCount(),
+        'Pending requests:',
+        requestManager.getPendingRequestCount()
+      );
     } catch (error) {
       console.error('Error in cleanup:', error);
     }
-  }, 30 * 60 * 1000); // Check every 30 minutes
-
-  console.log('Cleanup interval set up successfully');
+  }, 30 * 60 * 1000); // Setiap 30 menit
 }
