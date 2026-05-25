@@ -24,6 +24,8 @@ export default function adminPanel(bot) {
    * @param {Context} ctx - Context dari Telegraf
    * @param {Function} next - Fungsi next untuk melanjutkan
    */
+  const adminInputState = new Map();
+
   async function adminMiddleware(ctx, next) {
     const userId = ctx.from.id;
     
@@ -290,6 +292,206 @@ export default function adminPanel(bot) {
     );
   });
 
+  // Handler untuk lihat & ubah rate limit
+  bot.action('admin_set_ratelimit', adminMiddleware, async (ctx) => {
+    await ctx.answerCbQuery();
+
+    try {
+      const cfg = await Database.getConfigs([
+        'confession_max_per_window',
+        'confession_window_hours',
+        'ratelimit_msg_hit',
+        'ratelimit_msg_success'
+      ]);
+
+      const maxCount    = cfg['confession_max_per_window'] || '1';
+      const windowHours = cfg['confession_window_hours']   || '8';
+
+      await ctx.editMessageText(
+        `⏰ *Pengaturan Rate Limit Menfess*\n\n` +
+        `📊 *Konfigurasi Saat Ini:*\n` +
+        `• Maksimal menfess: *${maxCount}x*\n` +
+        `• Per jangka waktu: *${windowHours} jam*\n\n` +
+        `_Artinya: 1 user bisa kirim ${maxCount} menfess setiap ${windowHours} jam._\n\n` +
+        `Pilih yang ingin diubah:`,
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: `✏️ Ubah Maks (${maxCount}x)`,     callback_data: 'admin_rl_set_max'   },
+                { text: `✏️ Ubah Jangka (${windowHours}j)`, callback_data: 'admin_rl_set_hours' }
+              ],
+              [
+                { text: '📝 Ubah Pesan Rate Limit',  callback_data: 'admin_rl_set_msg_hit'     },
+                { text: '📝 Ubah Pesan Sukses',      callback_data: 'admin_rl_set_msg_success' }
+              ],
+              [
+                { text: '🔄 Reset ke Default', callback_data: 'admin_rl_reset' }
+              ],
+              [{ text: '🏠 Kembali', callback_data: 'admin_settings' }]
+            ]
+          }
+        }
+      );
+    } catch (error) {
+      console.error('❌ Error loading ratelimit config:', error);
+      await ctx.editMessageText('❌ Gagal memuat konfigurasi.', {
+        reply_markup: { inline_keyboard: [[{ text: '🏠 Kembali', callback_data: 'admin_settings' }]] }
+      });
+    }
+  });
+
+  // Ubah nilai maksimal menfess
+  bot.action('admin_rl_set_max', adminMiddleware, async (ctx) => {
+    await ctx.answerCbQuery();
+    adminInputState.set(ctx.from.id, { action: 'set_max' });
+
+    await ctx.editMessageText(
+      `✏️ *Ubah Maksimal Menfess*\n\n` +
+      `Kirimkan angka baru untuk maksimal menfess per jangka waktu.\n\n` +
+      `Contoh: \`3\` → user bisa kirim 3 menfess per window\n\n` +
+      `_Ketik /cancel untuk membatalkan_`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '❌ Batal', callback_data: 'admin_rl_cancel' }]
+          ]
+        }
+      }
+    );
+  });
+
+  // Ubah jangka waktu window
+  bot.action('admin_rl_set_hours', adminMiddleware, async (ctx) => {
+    await ctx.answerCbQuery();
+    adminInputState.set(ctx.from.id, { action: 'set_hours' });
+
+    await ctx.editMessageText(
+      `✏️ *Ubah Jangka Waktu Window*\n\n` +
+      `Kirimkan angka jam baru untuk jangka waktu rate limit.\n\n` +
+      `Contoh: \`24\` → reset setiap 24 jam, \`1\` → reset setiap 1 jam\n\n` +
+      `_Ketik /cancel untuk membatalkan_`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '❌ Batal', callback_data: 'admin_rl_cancel' }]
+          ]
+        }
+      }
+    );
+  });
+
+  // Ubah pesan rate limit hit
+  bot.action('admin_rl_set_msg_hit', adminMiddleware, async (ctx) => {
+    await ctx.answerCbQuery();
+    adminInputState.set(ctx.from.id, { action: 'set_msg_hit' });
+
+    await ctx.editMessageText(
+      `✏️ *Ubah Pesan Rate Limit*\n\n` +
+      `Kirimkan teks pesan baru. Placeholder yang tersedia:\n` +
+      `• \`{count}\` → maks kirim (misal: 3)\n` +
+      `• \`{hours}\` → jangka waktu (misal: 8)\n` +
+      `• \`{next_time}\` → waktu boleh kirim lagi\n\n` +
+      `Contoh:\n` +
+      `\`⏰ Kamu sudah kirim {count}x dalam {hours} jam. Coba lagi: {next_time}\`\n\n` +
+      `_Ketik /cancel untuk membatalkan_`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '❌ Batal', callback_data: 'admin_rl_cancel' }]
+          ]
+        }
+      }
+    );
+  });
+
+  // Ubah pesan sukses
+  bot.action('admin_rl_set_msg_success', adminMiddleware, async (ctx) => {
+    await ctx.answerCbQuery();
+    adminInputState.set(ctx.from.id, { action: 'set_msg_success' });
+
+    await ctx.editMessageText(
+      `✏️ *Ubah Pesan Sukses Menfess*\n\n` +
+      `Kirimkan teks pesan baru. Placeholder yang tersedia:\n` +
+      `• \`{hours}\` → jangka waktu window\n\n` +
+      `Contoh:\n` +
+      `\`🎉 Menfess berhasil! Kamu bisa kirim lagi dalam {hours} jam.\`\n\n` +
+      `_Ketik /cancel untuk membatalkan_`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '❌ Batal', callback_data: 'admin_rl_cancel' }]
+          ]
+        }
+      }
+    );
+  });
+
+  // Reset ke default
+  bot.action('admin_rl_reset', adminMiddleware, async (ctx) => {
+    await ctx.answerCbQuery();
+    await ctx.editMessageText(
+      `🔄 *Reset Rate Limit ke Default?*\n\n` +
+      `Ini akan mengatur ulang ke:\n` +
+      `• Maksimal: *1x*\n` +
+      `• Jangka waktu: *8 jam*\n` +
+      `• Pesan notifikasi: kembali ke default\n\n` +
+      `Yakin?`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '✅ Ya, Reset',  callback_data: 'admin_rl_reset_confirm' },
+              { text: '❌ Batal',      callback_data: 'admin_set_ratelimit'    }
+            ]
+          ]
+        }
+      }
+    );
+  });
+
+  bot.action('admin_rl_reset_confirm', adminMiddleware, async (ctx) => {
+    await ctx.answerCbQuery('🔄 Mereset...');
+    try {
+      await Database.setConfig('confession_max_per_window', '1');
+      await Database.setConfig('confession_window_hours',   '8');
+      await Database.setConfig('ratelimit_msg_hit',
+        '⏰ Kamu sudah menfess {count}x dalam {hours} jam terakhir.\n\nCoba lagi setelah: *{next_time}*'
+      );
+      await Database.setConfig('ratelimit_msg_success',
+        '🎉 *Menfess berhasil dipublish!*\n\n• Menfess kamu sudah tayang di channel\n• User lain bisa klik "Hit Me" untuk chat denganmu\n• Kamu akan dapat notifikasi jika ada yang tertarik\n\n⏰ Kamu bisa menfess lagi dalam {hours} jam'
+      );
+
+      await ctx.editMessageText(
+        '✅ *Rate limit berhasil direset ke default!*\n\n• Maksimal: 1x\n• Jangka waktu: 8 jam',
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [[{ text: '🔙 Kembali ke Rate Limit', callback_data: 'admin_set_ratelimit' }]]
+          }
+        }
+      );
+    } catch (error) {
+      console.error('❌ Error resetting ratelimit:', error);
+      await ctx.reply('❌ Gagal reset. Silakan coba lagi.');
+    }
+  });
+
+  // Batal input
+  bot.action('admin_rl_cancel', adminMiddleware, async (ctx) => {
+    await ctx.answerCbQuery('❌ Dibatalkan');
+    adminInputState.delete(ctx.from.id);
+    // Kembali ke halaman rate limit
+    ctx.callbackQuery.data = 'admin_set_ratelimit';
+    await bot.handleUpdate({ ...ctx.update, callback_query: { ...ctx.callbackQuery, data: 'admin_set_ratelimit' } });
+  });
+
   // Handler untuk debug info
   bot.action('admin_debug', adminMiddleware, async (ctx) => {
     await ctx.answerCbQuery('🔧 Memuat debug info...');
@@ -457,6 +659,104 @@ export default function adminPanel(bot) {
     };
     return statusEmojis[status] || '❓';
   }
+
+  // Tangkap input teks dari admin (untuk ubah config rate limit)
+  bot.on('text', async (ctx, next) => {
+    const userId = ctx.from.id;
+
+    // Hanya proses jika admin dan sedang dalam state input
+    if (!isAdmin(userId) || !adminInputState.has(userId)) {
+      return next();
+    }
+
+    const text = ctx.message.text.trim();
+
+    // Izinkan /cancel keluar dari state
+    if (text === '/cancel') {
+      adminInputState.delete(userId);
+      return ctx.reply('❌ Dibatalkan.', {
+        reply_markup: {
+          inline_keyboard: [[{ text: '🔙 Kembali ke Rate Limit', callback_data: 'admin_set_ratelimit' }]]
+        }
+      });
+    }
+
+    const state = adminInputState.get(userId);
+
+    try {
+      if (state.action === 'set_max') {
+        const val = parseInt(text, 10);
+        if (isNaN(val) || val < 1 || val > 100) {
+          return ctx.reply('❌ Masukkan angka antara 1 sampai 100.');
+        }
+        await Database.setConfig('confession_max_per_window', val.toString());
+        adminInputState.delete(userId);
+        await ctx.reply(
+          `✅ *Maksimal menfess diperbarui: ${val}x per window*`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [[{ text: '🔙 Kembali ke Rate Limit', callback_data: 'admin_set_ratelimit' }]]
+            }
+          }
+        );
+
+      } else if (state.action === 'set_hours') {
+        const val = parseFloat(text);
+        if (isNaN(val) || val < 0.1 || val > 720) {
+          return ctx.reply('❌ Masukkan angka jam antara 0.1 sampai 720 (30 hari).');
+        }
+        await Database.setConfig('confession_window_hours', val.toString());
+        adminInputState.delete(userId);
+        await ctx.reply(
+          `✅ *Jangka waktu diperbarui: ${val} jam*`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [[{ text: '🔙 Kembali ke Rate Limit', callback_data: 'admin_set_ratelimit' }]]
+            }
+          }
+        );
+
+      } else if (state.action === 'set_msg_hit') {
+        if (text.length < 10 || text.length > 500) {
+          return ctx.reply('❌ Pesan harus antara 10 sampai 500 karakter.');
+        }
+        await Database.setConfig('ratelimit_msg_hit', text);
+        adminInputState.delete(userId);
+        await ctx.reply(
+          `✅ *Pesan rate limit diperbarui!*\n\nPreview:\n${text}`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [[{ text: '🔙 Kembali ke Rate Limit', callback_data: 'admin_set_ratelimit' }]]
+            }
+          }
+        );
+
+      } else if (state.action === 'set_msg_success') {
+        if (text.length < 10 || text.length > 500) {
+          return ctx.reply('❌ Pesan harus antara 10 sampai 500 karakter.');
+        }
+        await Database.setConfig('ratelimit_msg_success', text);
+        adminInputState.delete(userId);
+        await ctx.reply(
+          `✅ *Pesan sukses diperbarui!*\n\nPreview:\n${text}`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [[{ text: '🔙 Kembali ke Rate Limit', callback_data: 'admin_set_ratelimit' }]]
+            }
+          }
+        );
+      }
+
+    } catch (error) {
+      console.error('❌ Error saving config:', error);
+      adminInputState.delete(userId);
+      await ctx.reply('❌ Gagal menyimpan konfigurasi. Silakan coba lagi.');
+    }
+  });
 
   // Export public methods
   return {
