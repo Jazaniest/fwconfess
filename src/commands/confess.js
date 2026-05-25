@@ -77,6 +77,7 @@ export default function confessCommand(bot, targetChannelId) {
       }
 
       // Check rate limit (config & pesan dari database)
+      const now = Date.now();
       const rlCfg = await getRateLimitConfig();
       const recentCount = await Database.countRecentConfessions(userId, rlCfg.windowMs);
       if (recentCount >= rlCfg.maxCount) {
