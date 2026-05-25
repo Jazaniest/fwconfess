@@ -20,8 +20,34 @@ export default function confessCommand(bot, targetChannelId) {
   }
 
   const pending = new Map();
-  const lastSent = new Map();
-  const LIMIT_MS = 8 * 60 * 60 * 1000; // 8 jam
+  // const LIMIT_MS = 8 * 60 * 60 * 1000;
+  // const MAX_CONFESSIONS = 1; // ubah angka ini untuk nambah kuota, misal 
+  
+  // Ambil config rate limit dari database (di-cache per request, bukan global)
+  async function getRateLimitConfig() {
+    const cfg = await Database.getConfigs([
+      'confession_max_per_window',
+      'confession_window_hours',
+      'ratelimit_msg_hit',
+      'ratelimit_msg_success'
+    ]);
+    const windowHours = parseFloat(cfg['confession_window_hours'] || '8');
+    return {
+      maxCount : parseInt(cfg['confession_max_per_window'] || '1', 10),
+      windowMs : windowHours * 60 * 60 * 1000,
+      windowHours,
+      msgHit    : cfg['ratelimit_msg_hit']     || '⏰ Kamu sudah menfess {count}x dalam {hours} jam terakhir.\n\nCoba lagi setelah: *{next_time}*',
+      msgSuccess: cfg['ratelimit_msg_success']  || '🎉 *Menfess berhasil dipublish!*\n\n⏰ Kamu bisa menfess lagi dalam {hours} jam',
+    };
+  }
+
+  // Helper: render template dengan placeholder
+  function renderMsg(template, vars = {}) {
+    return Object.entries(vars).reduce(
+      (str, [k, v]) => str.replaceAll(`{${k}}`, v),
+      template
+    );
+  }
 
   const commentSystem = commentHandler(bot, process.env.DISCUSSION_GROUP_ID);
   const showMeSystem = showMeHandler(bot);
@@ -50,16 +76,19 @@ export default function confessCommand(bot, targetChannelId) {
         );
       }
 
-      // Check rate limit
-      const lastTime = lastSent.get(userId) || 0;
-      const now = Date.now();
-
-      if (now - lastTime < LIMIT_MS) {
-        const nextAllowed = new Date(lastTime + LIMIT_MS);
+      // Check rate limit (config & pesan dari database)
+      const rlCfg = await getRateLimitConfig();
+      const recentCount = await Database.countRecentConfessions(userId, rlCfg.windowMs);
+      if (recentCount >= rlCfg.maxCount) {
+        const oldestInWindow = await Database.getLastConfessionTime(userId, rlCfg.windowMs);
+        const nextAllowed = new Date(oldestInWindow.getTime() + rlCfg.windowMs);
         console.log('🚫 Rate limit hit for user:', userId);
         return ctx.reply(
-          `⏰ Kamu sudah menfess dalam 8 jam terakhir.\n\n` +
-          `Coba lagi setelah: *${nextAllowed.toLocaleString('id-ID')}*`,
+          renderMsg(rlCfg.msgHit, {
+            count    : rlCfg.maxCount,
+            hours    : rlCfg.windowHours,
+            next_time: nextAllowed.toLocaleString('id-ID'),
+          }),
           { parse_mode: 'Markdown' }
         );
       }
@@ -131,15 +160,19 @@ export default function confessCommand(bot, targetChannelId) {
       // Hapus dari pending setelah dapat data
       pending.delete(userId);
 
-      // Cek rate limit lagi (double check)
-      const lastTime = lastSent.get(userId) || 0;
+      // Cek rate limit lagi (double check, config & pesan dari database)
       const now = Date.now();
-
-      if (now - lastTime < LIMIT_MS) {
-        const nextAllowed = new Date(lastTime + LIMIT_MS);
+      const rlCfg = await getRateLimitConfig();
+      const recentCount = await Database.countRecentConfessions(userId, rlCfg.windowMs);
+      if (recentCount >= rlCfg.maxCount) {
+        const oldestInWindow = await Database.getLastConfessionTime(userId, rlCfg.windowMs);
+        const nextAllowed = new Date(oldestInWindow.getTime() + rlCfg.windowMs);
         return ctx.reply(
-          `⏰ Kamu sudah menfess dalam 8 jam terakhir.\n\n` +
-          `Coba lagi setelah: *${nextAllowed.toLocaleString('id-ID')}*`,
+          renderMsg(rlCfg.msgHit, {
+            count    : rlCfg.maxCount,
+            hours    : rlCfg.windowHours,
+            next_time: nextAllowed.toLocaleString('id-ID'),
+          }),
           { parse_mode: 'Markdown' }
         );
       }
@@ -198,27 +231,18 @@ export default function confessCommand(bot, targetChannelId) {
         console.error('⚠️ Gagal menambahkan tombol Show Me (confession tetap terkirim):', editErr.message);
       }
 
-      // Simpan timestamp rate limit SETELAH berhasil kirim
-      lastSent.set(userId, now);
-      console.log('⏰ Rate limit timestamp saved for user:', userId);
+      // Catat ke database SETELAH berhasil kirim
+      await Database.recordConfessionSent(userId);
+      console.log('⏰ Rate limit recorded to DB for user:', userId);
 
       // Save confession to database
       console.log('💾 Saving confession to database...');
       await Database.saveConfession(userId, text, result.message_id);
       console.log('✅ Confession saved to database');
 
-      const successMessage = commentUrl
-        ? '🎉 *Menfess berhasil dipublish!*\n\n' +
-          '• Menfess kamu sudah tayang di channel\n' +
-          '• User lain bisa klik "Hit Me" untuk chat denganmu\n' +
-          '• User bisa memberikan komentar melalui tombol "Comment"\n' +
-          '• Kamu akan dapat notifikasi jika ada yang tertarik\n\n' +
-          '⏰ Kamu bisa menfess lagi dalam 8 jam'
-        : '🎉 *Menfess berhasil dipublish!*\n\n' +
-          '• Menfess kamu sudah tayang di channel\n' +
-          '• User lain bisa klik "Hit Me" untuk chat denganmu\n' +
-          '• Kamu akan dapat notifikasi jika ada yang tertarik\n\n' +
-          '⏰ Kamu bisa menfess lagi dalam 8 jam';
+      const successMessage = renderMsg(rlCfg.msgSuccess, {
+        hours: rlCfg.windowHours,
+      });
 
       await ctx.reply(successMessage, { parse_mode: 'Markdown' });
       console.log('🎉 SUCCESS: Confession processed completely for user:', userId);
