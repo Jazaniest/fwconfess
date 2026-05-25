@@ -355,7 +355,103 @@ export class Database {
     );
   }
 
-  // ─── CATATAN: syncSessionsWithDatabase & forceCleanupUserSession ─────────────
+  // ─── Bot config queries ──────────────────────────────────────────────────────
+
+  /**
+   * Ambil satu nilai config berdasarkan key.
+   * @param {string} key
+   * @param {string} defaultValue - fallback jika key tidak ditemukan
+   */
+  static async getConfig(key, defaultValue = null) {
+    const [rows] = await db.query(
+      'SELECT `value` FROM `bot_config` WHERE `key` = ?',
+      [key]
+    );
+    return rows[0] ? rows[0].value : defaultValue;
+  }
+
+  /**
+   * Ambil banyak config sekaligus, return sebagai object { key: value }.
+   * @param {string[]} keys
+   */
+  static async getConfigs(keys) {
+    const [rows] = await db.query(
+      'SELECT `key`, `value` FROM `bot_config` WHERE `key` IN (?)',
+      [keys]
+    );
+    return Object.fromEntries(rows.map(r => [r.key, r.value]));
+  }
+
+  /**
+   * Update nilai config (dipakai admin).
+   */
+  static async setConfig(key, value) {
+    await db.query(
+      'INSERT INTO `bot_config` (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)',
+      [key, value]
+    );
+  }
+
+  // ─── Rate limit queries ──────────────────────────────────────────────────────
+
+  /**
+   * Hitung berapa confession yang dikirim user dalam window waktu tertentu.
+   * @param {number} telegramId
+   * @param {number} windowMs - window dalam milidetik (default 8 jam)
+   */
+  static async countRecentConfessions(telegramId, windowMs = 8 * 60 * 60 * 1000) {
+    const windowSec = Math.floor(windowMs / 1000);
+    const [[{ total }]] = await db.query(
+      `SELECT COUNT(*) AS total FROM \`confession_rate_limits\`
+        WHERE \`telegram_id\` = ?
+          AND \`sent_at\` > DATE_SUB(NOW(), INTERVAL ? SECOND)`,
+      [telegramId, windowSec]
+    );
+    return total;
+  }
+
+  /**
+   * Ambil timestamp confession terakhir user dalam window waktu tertentu.
+   * Dipakai untuk menghitung "kapan boleh kirim lagi".
+   */
+  static async getLastConfessionTime(telegramId, windowMs = 8 * 60 * 60 * 1000) {
+    const windowSec = Math.floor(windowMs / 1000);
+    const [[row]] = await db.query(
+      `SELECT \`sent_at\` FROM \`confession_rate_limits\`
+        WHERE \`telegram_id\` = ?
+          AND \`sent_at\` > DATE_SUB(NOW(), INTERVAL ? SECOND)
+        ORDER BY \`sent_at\` ASC
+        LIMIT 1`,
+      [telegramId, windowSec]
+    );
+    return row ? new Date(row.sent_at) : null;
+  }
+
+  /**
+   * Catat satu confession terkirim (dipanggil setelah berhasil publish).
+   */
+  static async recordConfessionSent(telegramId) {
+    await db.query(
+      'INSERT INTO `confession_rate_limits` (`telegram_id`) VALUES (?)',
+      [telegramId]
+    );
+  }
+
+  /**
+   * Bersihkan data rate limit yang sudah lebih tua dari windowMs.
+   * Jalankan periodik (misal setiap 24 jam) supaya tabel tidak membengkak.
+   */
+  static async cleanupOldRateLimits(windowMs = 8 * 60 * 60 * 1000) {
+    const windowSec = Math.floor(windowMs / 1000);
+    const [result] = await db.query(
+      `DELETE FROM \`confession_rate_limits\`
+        WHERE \`sent_at\` < DATE_SUB(NOW(), INTERVAL ? SECOND)`,
+      [windowSec]
+    );
+    return result.affectedRows;
+  }
+
+  // ─── CATATAN: syncSessionsWithDatabase ...
   //
   // ✅ FIX BUG #9: Dua method ini DIHAPUS dari class Database karena keduanya
   // mengakses `this.activeChatUsers` — sebuah Map in-memory milik ChatManager,
