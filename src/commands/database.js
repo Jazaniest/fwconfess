@@ -54,6 +54,17 @@ export class Database {
   }
 
   /**
+   * Get confessions by Telegram ID
+   */
+  static async getConfessionsByUserId(telegramId, limit = 5) {
+    const [rows] = await db.query(
+      'SELECT * FROM `confessions` WHERE `telegram_id` = ? ORDER BY `created_at` DESC LIMIT ?',
+      [telegramId, limit]
+    );
+    return rows;
+  }
+
+  /**
    * Get confession by channel message ID
    */
   static async getConfessionByChannelMessageId(channelMessageId) {
