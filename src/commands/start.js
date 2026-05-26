@@ -59,15 +59,22 @@ async function showJoinRequirement(ctx, membershipStatus) {
  * Fungsi untuk menampilkan menu utama untuk user biasa
  */
 async function showMainMenu(ctx) {
+  const rankEnabled = await Database.getConfig('rank_system_enabled', '0');
   const welcomeText = `Halo ${ctx.from.first_name}! 🤖\n\nSelamat datang di FWB Confess Bot.\nPilih opsi di bawah ini:`;
+
   const buttons = [
     [Markup.button.callback('📣 Kirim Menfess', 'btn_confess')],
     [
       Markup.button.callback('👤 Lihat Profile', 'btn_profile'),
       Markup.button.callback('📜 Lihat Menfess', 'btn_view')
     ],
-    [Markup.button.callback('ℹ️ Bantuan', 'btn_help')]
   ];
+
+  if (rankEnabled === '1') {
+    buttons.push([Markup.button.callback('🏆 Upgrade Rank', 'btn_upgrade_rank')]);
+  }
+
+  buttons.push([Markup.button.callback('ℹ️ Bantuan', 'btn_help')]);
   await ctx.reply(welcomeText, Markup.inlineKeyboard(buttons));
 }
 
@@ -417,6 +424,51 @@ export default function startCommand(bot) {
         ]
       }
     });
+  });
+
+  bot.action('btn_upgrade_rank', membershipMiddleware, async (ctx) => {
+    await ctx.answerCbQuery();
+
+    const activeRanks = await Database.getActiveRanks();
+
+    if (activeRanks.length === 0) {
+      return ctx.reply('⏳ Belum ada rank yang tersedia untuk upgrade saat ini.');
+    }
+
+    let text = `🏆 *Upgrade Rank*\n\nPilih rank yang ingin kamu upgrade:\n\n`;
+    activeRanks.forEach(r => {
+      text += `• *${r.rank}* — bisa menfess ${r.max_count}x per window\n`;
+    });
+    text += `\n_Fitur pembayaran akan segera tersedia._`;
+
+    const buttons = activeRanks.map(r => ([
+      Markup.button.callback(`⬆️ ${r.rank} (${r.max_count}x)`, `upgrade_to_${r.rank}`)
+    ]));
+    buttons.push([Markup.button.callback('🏠 Menu Utama', 'back_to_main')]);
+
+    await ctx.reply(text, {
+      parse_mode: 'Markdown',
+      reply_markup: { inline_keyboard: buttons }
+    });
+  });
+
+  // Handler tiap pilihan upgrade — dummy
+  bot.action(/^upgrade_to_(.+)$/, membershipMiddleware, async (ctx) => {
+    await ctx.answerCbQuery();
+    const rank = ctx.match[1];
+
+    await ctx.reply(
+      `⏳ *Upgrade ke rank ${rank}*\n\nFitur pembayaran sedang dalam pengembangan.\nHubungi admin untuk upgrade manual: @SanzJzx`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [Markup.button.url('📞 Hubungi Admin', 'https://t.me/SanzJzx')],
+            [Markup.button.callback('🔙 Kembali', 'btn_upgrade_rank')]
+          ]
+        }
+      }
+    );
   });
 
   return {
