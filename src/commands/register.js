@@ -103,7 +103,7 @@ export default function registerCommand(bot) {
     try {
       await db.query(
         'INSERT INTO `users` (`telegram_id`, `gender`, `origin`, `rank`, `registered_at`) VALUES (?, ?, ?, ?, NOW())',
-        [telegram_id, gender, origin, 'bronze']
+        [telegram_id, gender, origin, 'member']
       )
 
       ctx.session.registration.done = true
