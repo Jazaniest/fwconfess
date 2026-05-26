@@ -285,7 +285,10 @@ export default function adminPanel(bot) {
               { text: '🎯 Auto Mod', callback_data: 'admin_automod' },
               { text: '📢 Announcements', callback_data: 'admin_announcements' }
             ],
-            [{ text: '🏠 Kembali', callback_data: 'back_to_admin' }]
+            [
+              { text: '🏆 Pengaturan Rank', callback_data: 'admin_rank_settings' },
+              { text: '🏠 Kembali', callback_data: 'back_to_admin' }
+            ]
           ]
         }
       }
@@ -561,6 +564,183 @@ export default function adminPanel(bot) {
     );
   });
 
+  // Menu utama rank settings
+  bot.action('admin_rank_settings', adminMiddleware, async (ctx) => {
+    await ctx.answerCbQuery();
+    const rankEnabled = await Database.getConfig('rank_system_enabled', '0');
+    const isEnabled = rankEnabled === '1';
+
+    await ctx.editMessageText(
+      `🏆 *Pengaturan Sistem Rank*\n\n` +
+      `Status: ${isEnabled ? '✅ Aktif' : '❌ Nonaktif'}\n\n` +
+      `${isEnabled ? 'Sistem rank sedang berjalan. User bisa upgrade rank.' : 'Sistem rank dimatikan. Semua user menggunakan limit rank Member.'}`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: isEnabled ? '🔴 Nonaktifkan Rank' : '🟢 Aktifkan Rank', callback_data: 'admin_rank_toggle' }],
+            [{ text: '⚙️ Atur Limit per Rank', callback_data: 'admin_rank_limits' }],
+            [{ text: '👑 Promote User', callback_data: 'admin_promote_user' }],
+            [{ text: '🏠 Kembali', callback_data: 'admin_settings' }]
+          ]
+        }
+      }
+    );
+  });
+
+  // Toggle rank system on/off
+  bot.action('admin_rank_toggle', adminMiddleware, async (ctx) => {
+    await ctx.answerCbQuery();
+    const current = await Database.getConfig('rank_system_enabled', '0');
+    const newVal = current === '1' ? '0' : '1';
+    await Database.setConfig('rank_system_enabled', newVal);
+
+    await ctx.editMessageText(
+      `✅ Sistem rank berhasil *${newVal === '1' ? 'diaktifkan' : 'dinonaktifkan'}*.\n\n` +
+      `${newVal === '0' ? 'Semua user sementara menggunakan limit rank Member.' : 'User kini menggunakan limit sesuai rank masing-masing.'}`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔙 Kembali ke Rank Settings', callback_data: 'admin_rank_settings' }]
+          ]
+        }
+      }
+    );
+  });
+
+  // Lihat & atur limit per rank
+  bot.action('admin_rank_limits', adminMiddleware, async (ctx) => {
+    await ctx.answerCbQuery();
+    const ranks = await Database.getAllRankLimits();
+
+    let text = `⚙️ *Limit Confession per Rank*\n\n`;
+    ranks.forEach(r => {
+      const status = r.is_active ? '✅' : '❌';
+      text += `${status} *${r.rank}* — ${r.max_count}x per window\n`;
+    });
+    text += `\n_Pilih rank untuk mengubah limit atau status aktifnya:_`;
+
+    const buttons = ranks.map(r => ([{
+      text: `${r.is_active ? '✅' : '❌'} ${r.rank} (${r.max_count}x)`,
+      callback_data: `admin_rank_edit_${r.rank}`
+    }]));
+    buttons.push([{ text: '🏠 Kembali', callback_data: 'admin_rank_settings' }]);
+
+    await ctx.editMessageText(text, {
+      parse_mode: 'Markdown',
+      reply_markup: { inline_keyboard: buttons }
+    });
+  });
+
+  // Edit rank tertentu
+  bot.action(/^admin_rank_edit_(.+)$/, adminMiddleware, async (ctx) => {
+    await ctx.answerCbQuery();
+    const rank = ctx.match[1];
+    const ranks = await Database.getAllRankLimits();
+    const rankData = ranks.find(r => r.rank === rank);
+    if (!rankData) return ctx.reply('❌ Rank tidak ditemukan.');
+
+    await ctx.editMessageText(
+      `✏️ *Edit Rank: ${rank}*\n\n` +
+      `Status: ${rankData.is_active ? '✅ Aktif (tampil di user)' : '❌ Nonaktif (tidak tampil di user)'}\n` +
+      `Limit saat ini: *${rankData.max_count}x* per window\n\n` +
+      `Pilih aksi:`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: rankData.is_active ? '🔴 Nonaktifkan' : '🟢 Aktifkan', callback_data: `admin_rank_toggle_${rank}` }],
+            [{ text: '✏️ Ubah Limit', callback_data: `admin_rank_setlimit_${rank}` }],
+            [{ text: '🔙 Kembali', callback_data: 'admin_rank_limits' }]
+          ]
+        }
+      }
+    );
+  });
+
+  // Toggle aktif/nonaktif rank tertentu
+  bot.action(/^admin_rank_toggle_(.+)$/, adminMiddleware, async (ctx) => {
+    await ctx.answerCbQuery();
+    const rank = ctx.match[1];
+    if (rank === 'member') return ctx.answerCbQuery('❌ Rank member tidak bisa dinonaktifkan.');
+
+    const ranks = await Database.getAllRankLimits();
+    const rankData = ranks.find(r => r.rank === rank);
+    const newActive = rankData.is_active ? 0 : 1;
+    await Database.updateRankLimit(rank, rankData.max_count, newActive);
+
+    await ctx.editMessageText(
+      `✅ Rank *${rank}* berhasil *${newActive ? 'diaktifkan' : 'dinonaktifkan'}*.\n` +
+      `${newActive ? 'Rank ini sekarang tampil di pilihan upgrade user.' : 'Rank ini tidak akan tampil di pilihan upgrade user.'}`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔙 Kembali', callback_data: 'admin_rank_limits' }]
+          ]
+        }
+      }
+    );
+  });
+
+  // Set limit confession rank tertentu
+  bot.action(/^admin_rank_setlimit_(.+)$/, adminMiddleware, async (ctx) => {
+    await ctx.answerCbQuery();
+    const rank = ctx.match[1];
+    adminInputState.set(ctx.from.id, { action: 'set_rank_limit', rank });
+
+    await ctx.editMessageText(
+      `✏️ *Ubah Limit Rank: ${rank}*\n\n` +
+      `Kirimkan angka baru untuk maksimal confession rank ini.\n` +
+      `Contoh: \`5\` → user rank ${rank} bisa kirim 5x per window\n\n` +
+      `_Ketik /cancel untuk membatalkan_`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [[{ text: '❌ Batal', callback_data: `admin_rank_edit_${rank}` }]]
+        }
+      }
+    );
+  });
+
+  // Promote user — dummy untuk sekarang
+  bot.action('admin_promote_user', adminMiddleware, async (ctx) => {
+    await ctx.answerCbQuery();
+    await ctx.editMessageText(
+      `👑 *Promote User*\n\n` +
+      `Kirimkan ID Telegram user yang ingin di-promote.\n\n` +
+      `_Fitur ini akan terhubung ke sistem pembayaran di masa mendatang._\n\n` +
+      `_Ketik /cancel untuk membatalkan_`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [[{ text: '❌ Batal', callback_data: 'admin_rank_settings' }]]
+        }
+      }
+    );
+    adminInputState.set(ctx.from.id, { action: 'promote_user_step1' });
+  });
+
+  bot.action(/^admin_do_promote_(\d+)_(.+)$/, adminMiddleware, async (ctx) => {
+    await ctx.answerCbQuery();
+    const targetId = ctx.match[1];
+    const newRank = ctx.match[2];
+    adminInputState.delete(ctx.from.id);
+
+    await db.query('UPDATE `users` SET `rank` = ? WHERE `telegram_id` = ?', [newRank, targetId]);
+
+    await ctx.editMessageText(
+      `✅ User \`${targetId}\` berhasil di-promote ke rank *${newRank}*.`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [[{ text: '🔙 Kembali', callback_data: 'admin_rank_settings' }]]
+        }
+      }
+    );
+  });
+
   // Handler untuk kembali ke admin panel
   bot.action('back_to_admin', adminMiddleware, async (ctx) => {
     await ctx.answerCbQuery('👑 Kembali ke Admin Panel...');
@@ -748,6 +928,40 @@ export default function adminPanel(bot) {
               inline_keyboard: [[{ text: '🔙 Kembali ke Rate Limit', callback_data: 'admin_set_ratelimit' }]]
             }
           }
+        );
+      } else if (state.action === 'set_rank_limit') {
+        const val = parseInt(text, 10);
+        if (isNaN(val) || val < 1 || val > 100) {
+          return ctx.reply('❌ Masukkan angka antara 1 sampai 100.');
+        }
+        const ranks = await Database.getAllRankLimits();
+        const rankData = ranks.find(r => r.rank === state.rank);
+        await Database.updateRankLimit(state.rank, val, rankData.is_active);
+        adminInputState.delete(userId);
+        await ctx.reply(
+          `✅ *Limit rank ${state.rank} diperbarui: ${val}x per window*`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [[{ text: '🔙 Kembali ke Rank Limits', callback_data: 'admin_rank_limits' }]]
+            }
+          }
+        );
+
+      } else if (state.action === 'promote_user_step1') {
+        const targetId = parseInt(text, 10);
+        if (isNaN(targetId)) return ctx.reply('❌ ID tidak valid.');
+        const user = await Database.getUserById(targetId);
+        if (!user) return ctx.reply('❌ User tidak ditemukan.');
+        adminInputState.set(userId, { action: 'promote_user_step2', targetId });
+        const ranks = await Database.getAllRankLimits();
+        const buttons = ranks
+          .filter(r => r.rank !== 'member')
+          .map(r => ([{ text: r.rank, callback_data: `admin_do_promote_${targetId}_${r.rank}` }]));
+        buttons.push([{ text: '❌ Batal', callback_data: 'admin_rank_settings' }]);
+        await ctx.reply(
+          `👤 User ditemukan: \`${targetId}\` (rank saat ini: *${user.rank}*)\n\nPilih rank tujuan:`,
+          { parse_mode: 'Markdown', reply_markup: { inline_keyboard: buttons } }
         );
       }
 
