@@ -24,20 +24,25 @@ export default function confessCommand(bot, targetChannelId) {
   // const MAX_CONFESSIONS = 1; // ubah angka ini untuk nambah kuota, misal 
   
   // Ambil config rate limit dari database (di-cache per request, bukan global)
-  async function getRateLimitConfig() {
+  async function getRateLimitConfig(userId) {
     const cfg = await Database.getConfigs([
-      'confession_max_per_window',
       'confession_window_hours',
       'ratelimit_msg_hit',
       'ratelimit_msg_success'
     ]);
+
+    // Ambil rank efektif user (handle toggle on/off di dalam method ini)
+    const effectiveRank = await Database.getEffectiveRank(userId);
+    const maxCount = await Database.getConfessionLimitByRank(effectiveRank);
+
     const windowHours = parseFloat(cfg['confession_window_hours'] || '8');
     return {
-      maxCount : parseInt(cfg['confession_max_per_window'] || '1', 10),
-      windowMs : windowHours * 60 * 60 * 1000,
+      maxCount,
+      windowMs   : windowHours * 60 * 60 * 1000,
       windowHours,
-      msgHit    : cfg['ratelimit_msg_hit']     || '⏰ Kamu sudah menfess {count}x dalam {hours} jam terakhir.\n\nCoba lagi setelah: *{next_time}*',
-      msgSuccess: cfg['ratelimit_msg_success']  || '🎉 *Menfess berhasil dipublish!*\n\n⏰ Kamu bisa menfess lagi dalam {hours} jam',
+      effectiveRank,
+      msgHit     : cfg['ratelimit_msg_hit']    || '⏰ Kamu sudah menfess {count}x dalam {hours} jam terakhir.\n\nCoba lagi setelah: *{next_time}*',
+      msgSuccess : cfg['ratelimit_msg_success'] || '🎉 *Menfess berhasil dipublish!*\n\n⏰ Kamu bisa menfess lagi dalam {hours} jam',
     };
   }
 
@@ -78,7 +83,7 @@ export default function confessCommand(bot, targetChannelId) {
 
       // Check rate limit (config & pesan dari database)
       const now = Date.now();
-      const rlCfg = await getRateLimitConfig();
+      const rlCfg = await getRateLimitConfig(userId);
       const recentCount = await Database.countRecentConfessions(userId, rlCfg.windowMs);
       if (recentCount >= rlCfg.maxCount) {
         const oldestInWindow = await Database.getLastConfessionTime(userId, rlCfg.windowMs);
@@ -163,7 +168,7 @@ export default function confessCommand(bot, targetChannelId) {
 
       // Cek rate limit lagi (double check, config & pesan dari database)
       const now = Date.now();
-      const rlCfg = await getRateLimitConfig();
+      const rlCfg = await getRateLimitConfig(userId);
       const recentCount = await Database.countRecentConfessions(userId, rlCfg.windowMs);
       if (recentCount >= rlCfg.maxCount) {
         const oldestInWindow = await Database.getLastConfessionTime(userId, rlCfg.windowMs);
