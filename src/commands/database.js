@@ -462,6 +462,49 @@ export class Database {
     return result.affectedRows;
   }
 
+  // Ambil limit confession untuk rank tertentu
+  static async getConfessionLimitByRank(rank) {
+    const [rows] = await db.query(
+      'SELECT `max_count` FROM `rank_confession_limits` WHERE `rank` = ?',
+      [rank]
+    );
+    return rows[0] ? rows[0].max_count : 1;
+  }
+
+  // Ambil semua rank limits (untuk admin panel)
+  static async getAllRankLimits() {
+    const [rows] = await db.query(
+      'SELECT * FROM `rank_confession_limits` ORDER BY `max_count` ASC'
+    );
+    return rows;
+  }
+
+  // Update limit dan status aktif sebuah rank
+  static async updateRankLimit(rank, maxCount, isActive) {
+    await db.query(
+      `UPDATE \`rank_confession_limits\` SET \`max_count\` = ?, \`is_active\` = ? WHERE \`rank\` = ?`,
+      [maxCount, isActive, rank]
+    );
+  }
+
+  // Ambil rank efektif user — jika rank system off, return 'member'
+  static async getEffectiveRank(telegramId) {
+    const rankEnabled = await this.getConfig('rank_system_enabled', '0');
+    if (rankEnabled !== '1') return 'member';
+
+    const user = await this.getUserById(telegramId);
+    return user?.rank || 'member';
+  }
+
+  // Ambil rank yang aktif saja (untuk ditampilkan di user)
+  static async getActiveRanks() {
+    const [rows] = await db.query(
+      'SELECT `rank`, `max_count` FROM `rank_confession_limits` WHERE `is_active` = 1 AND `rank` != ? ORDER BY `max_count` ASC',
+      ['member']
+    );
+    return rows;
+  }
+
   // ─── CATATAN: syncSessionsWithDatabase ...
   //
   // ✅ FIX BUG #9: Dua method ini DIHAPUS dari class Database karena keduanya
