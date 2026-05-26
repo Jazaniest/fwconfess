@@ -202,8 +202,9 @@ export default function startCommand(bot) {
         reply_markup: {
           inline_keyboard: [
             [
-              { text: '📝 Edit Profile', callback_data: 'edit_profile' },
-              { text: '📊 My Stats', callback_data: 'my_stats' }
+              // Fitur ini memerlukan pertimbangan lebih lanjut untuk di update di masa depan, karena melibatkan perubahan data user yang sensitif.
+              // { text: '📝 Edit Profile', callback_data: 'edit_profile' },
+              // { text: '📊 My Stats', callback_data: 'my_stats' }
             ],
             [{ text: '🏠 Menu Utama', callback_data: 'back_to_main' }]
           ]
@@ -226,13 +227,38 @@ export default function startCommand(bot) {
     await ctx.answerCbQuery();
 
     try {
-      const viewText = `📜 *Menfess Terbaru*\n\n` +
-        `Berikut adalah daftar menfess terbaru:\n\n` +
-        `_Fitur sedang dalam pengembangan..._\n\n` +
-        `💡 Sementara ini, Anda bisa melihat menfess langsung di channel atau grup diskusi.`;
+      const telegramId = ctx.from.id; // Mengambil ID Telegram user yang menekan tombol
 
+      // 1. Ambil data menfess dari database (Misal nama class-nya ConfessionModel)
+      // Sesuai dengan nama class tempat fungsi saveConfession kamu berada
+      const confessions = await Database.getConfessionsByUserId(telegramId, 5);
+
+      // 2. Buat teks dinamis berdasarkan data yang didapat
+      let listText = '';
+      
+      if (confessions.length === 0) {
+        listText = `_Kamu belum pernah mengirim menfess atau data tidak ditemukan._\n\n`;
+      } else {
+        confessions.forEach((cf, index) => {
+          // Memotong teks jika terlalu panjang agar chat tidak penuh
+          const shortText = cf.message_text.length > 60 
+            ? cf.message_text.substring(0, 60) + '...' 
+            : cf.message_text;
+
+          listText += `${index + 1}. *ID:* #${cf.id}\n` +
+                      `📝 "${shortText}"\n` +
+                      `🔗 [Lihat di Channel](https://t.me/fwb_confess/${cf.channel_message_id})\n\n`;
+        });
+      }
+
+      const viewText = `📜 *Menfess Terbaru Anda*\n\n` +
+        `${listText}` +
+        `💡 Gunakan tombol di bawah untuk menyegarkan halaman atau kembali ke menu.`;
+
+      // 3. Kirim/Edit pesan dengan data terbaru
       await ctx.reply(viewText, {
         parse_mode: 'Markdown',
+        disable_web_page_preview: true, // Agar link preview telegram tidak menumpuk di chat
         reply_markup: {
           inline_keyboard: [
             [
@@ -240,10 +266,11 @@ export default function startCommand(bot) {
               { text: '💬 Ke Grup', url: 'https://t.me/fwb_confesschat' }
             ],
             [
-              { text: '📝 My Menfess', callback_data: 'my_menfess' },
-              { text: '🔄 Refresh', callback_data: 'btn_view' }
-            ],
-            [{ text: '🏠 Menu Utama', callback_data: 'back_to_main' }]
+              // Tombol My Menfess bisa diaktifkan jika kamu punya handler 'my_menfess'
+              // { text: '📝 My Menfess', callback_data: 'my_menfess' }, 
+              { text: '🔄 Refresh', callback_data: 'btn_view' },
+              { text: '🏠 Menu Utama', callback_data: 'back_to_main' }
+            ]
           ]
         }
       });
