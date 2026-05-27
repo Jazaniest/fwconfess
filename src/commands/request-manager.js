@@ -12,6 +12,28 @@ export class RequestManager {
     this.ownerQueues = new Map();
   }
 
+  // ─── Rate limit helper ───────────────────────────────────────────────────────
+
+  async _getRLConfig(userId) {
+    const windowHours = parseFloat(
+      await Database.getConfig('confession_window_hours', '8')
+    );
+    const effectiveRank = await Database.getEffectiveRank(userId);
+    const maxCount      = await Database.getActionLimitByRank(effectiveRank, 'hitme');
+    return {
+      maxCount,
+      windowMs  : windowHours * 60 * 60 * 1000,
+      windowHours,
+    };
+  }
+
+  // _renderMsg(template, vars = {}) {
+  //   return Object.entries(vars).reduce(
+  //     (str, [k, v]) => str.replaceAll(`{${k}}`, v),
+  //     template
+  //   );
+  // }
+
   /**
    * Setup request handlers
    */
@@ -56,6 +78,22 @@ export class RequestManager {
     try {
       console.log('=== CREATING HIT ME REQUEST ===');
       console.log('Confessor:', confessionAuthorId, 'Hitter:', hitterId);
+
+      // ─── Rate limit check ───────────────────────────────────────────────────
+      const rlCfg       = await this._getRLConfig(hitterId);
+      const recentCount = await Database.countRecentActions(hitterId, 'hitme', rlCfg.windowMs);
+
+      if (recentCount >= rlCfg.maxCount) {
+        const oldest      = await Database.getOldestActionTime(hitterId, 'hitme', rlCfg.windowMs);
+        const nextAllowed = new Date(oldest.getTime() + rlCfg.windowMs);
+        const msg = `⏰ Kamu sudah melakukan Hit Me ${rlCfg.maxCount}x dalam ${rlCfg.windowHours} jam terakhir.\n\nCoba lagi setelah: *${nextAllowed.toLocaleString('id-ID')}*`;
+        if (ctx.chat?.type === 'private') {
+          await ctx.reply(msg, { parse_mode: 'Markdown' });
+        } else {
+          await ctx.telegram.sendMessage(hitterId, msg, { parse_mode: 'Markdown' });
+        }
+        return false;
+      }
 
       // Check if there's already a pending request from this hitter to this confessor
       const existingRequest = Array.from(this.pendingHitMeRequests.values()).find(
@@ -138,6 +176,9 @@ export class RequestManager {
         '🔔 Mereka akan mendapat notifikasi di bot pribadi\n' +
         '⏱️ Tunggu persetujuan dari mereka\n\n' +
         '💡 *Permintaan akan expired dalam 10 menit*';
+
+      // Catat ke DB setelah request berhasil dibuat (bukan setelah approve)
+      await Database.recordActionSent(hitterId, 'hitme');
 
       try {
         if (ctx.chat.type === 'private') {
