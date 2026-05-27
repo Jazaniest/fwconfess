@@ -96,15 +96,6 @@ export default function hitMeCommand(bot) {
         validationResult.confession
       );
 
-      if (!success) {
-        const errorMessage = '❌ Terjadi kesalahan saat membuat permintaan. Silakan coba lagi.';
-        if (ctx.chat.type === 'private') {
-          await ctx.reply(errorMessage);
-        } else {
-          await ctx.telegram.sendMessage(hitterId, errorMessage);
-        }
-      }
-
     } catch (error) {
       console.error('Error processing hit me request:', error);
       const errorMessage = '❌ Terjadi kesalahan. Silakan coba lagi nanti.';
