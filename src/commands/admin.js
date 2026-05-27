@@ -614,15 +614,15 @@ export default function adminPanel(bot) {
     await ctx.answerCbQuery();
     const ranks = await Database.getAllRankLimits();
 
-    let text = `⚙️ *Limit Confession per Rank*\n\n`;
+    let text = `⚙️ *Limit per Rank*\n\n`;
     ranks.forEach(r => {
       const status = r.is_active ? '✅' : '❌';
-      text += `${status} *${r.rank}* — ${r.max_count}x per window\n`;
+      text += `${status} *${r.rank}* — confess: ${r.max_count}x | hitme: ${r.hitme_max_count}x | showme: ${r.showme_max_count}x\n`;
     });
-    text += `\n_Pilih rank untuk mengubah limit atau status aktifnya:_`;
+    text += `\n_Pilih rank untuk mengubah limit:_`;
 
     const buttons = ranks.map(r => ([{
-      text: `${r.is_active ? '✅' : '❌'} ${r.rank} (${r.max_count}x)`,
+      text: `${r.is_active ? '✅' : '❌'} ${r.rank}`,
       callback_data: `admin_rank_edit_${r.rank}`
     }]));
     buttons.push([{ text: '🏠 Kembali', callback_data: 'admin_rank_settings' }]);
@@ -643,15 +643,20 @@ export default function adminPanel(bot) {
 
     await ctx.editMessageText(
       `✏️ *Edit Rank: ${rank}*\n\n` +
-      `Status: ${rankData.is_active ? '✅ Aktif (tampil di user)' : '❌ Nonaktif (tidak tampil di user)'}\n` +
-      `Limit saat ini: *${rankData.max_count}x* per window\n\n` +
+      `Status: ${rankData.is_active ? '✅ Aktif' : '❌ Nonaktif'}\n\n` +
+      `📊 *Limit saat ini:*\n` +
+      `• Confess : *${rankData.max_count}x* per window\n` +
+      `• Hit Me  : *${rankData.hitme_max_count}x* per window\n` +
+      `• Show Me : *${rankData.showme_max_count}x* per window\n\n` +
       `Pilih aksi:`,
       {
         parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [
             [{ text: rankData.is_active ? '🔴 Nonaktifkan' : '🟢 Aktifkan', callback_data: `admin_rank_toggle_${rank}` }],
-            [{ text: '✏️ Ubah Limit', callback_data: `admin_rank_setlimit_${rank}` }],
+            [{ text: '✏️ Limit Confess',  callback_data: `admin_rank_setlimit_${rank}_confess`  }],
+            [{ text: '✏️ Limit Hit Me',   callback_data: `admin_rank_setlimit_${rank}_hitme`    }],
+            [{ text: '✏️ Limit Show Me',  callback_data: `admin_rank_setlimit_${rank}_showme`   }],
             [{ text: '🔙 Kembali', callback_data: 'admin_rank_limits' }]
           ]
         }
@@ -668,7 +673,9 @@ export default function adminPanel(bot) {
     const ranks = await Database.getAllRankLimits();
     const rankData = ranks.find(r => r.rank === rank);
     const newActive = rankData.is_active ? 0 : 1;
-    await Database.updateRankLimit(rank, rankData.max_count, newActive);
+
+    // Toggle tidak mengubah limit, pakai confess sebagai anchor (isActive berlaku global per rank)
+    await Database.updateRankLimit(rank, 'confess', rankData.max_count, newActive);
 
     await ctx.editMessageText(
       `✅ Rank *${rank}* berhasil *${newActive ? 'diaktifkan' : 'dinonaktifkan'}*.\n` +
@@ -685,15 +692,18 @@ export default function adminPanel(bot) {
   });
 
   // Set limit confession rank tertentu
-  bot.action(/^admin_rank_setlimit_(.+)$/, adminMiddleware, async (ctx) => {
+  bot.action(/^admin_rank_setlimit_([^_]+)_(confess|hitme|showme)$/, adminMiddleware, async (ctx) => {
     await ctx.answerCbQuery();
-    const rank = ctx.match[1];
-    adminInputState.set(ctx.from.id, { action: 'set_rank_limit', rank });
+    const rank       = ctx.match[1];
+    const actionType = ctx.match[2];
+
+    const actionLabel = { confess: 'Confess', hitme: 'Hit Me', showme: 'Show Me' }[actionType];
+    adminInputState.set(ctx.from.id, { action: 'set_rank_limit', rank, actionType });
 
     await ctx.editMessageText(
-      `✏️ *Ubah Limit Rank: ${rank}*\n\n` +
-      `Kirimkan angka baru untuk maksimal confession rank ini.\n` +
-      `Contoh: \`5\` → user rank ${rank} bisa kirim 5x per window\n\n` +
+      `✏️ *Ubah Limit ${actionLabel} — Rank: ${rank}*\n\n` +
+      `Kirimkan angka baru untuk maksimal *${actionLabel}* rank ini.\n` +
+      `Contoh: \`5\` → user rank ${rank} bisa ${actionLabel} 5x per window\n\n` +
       `_Ketik /cancel untuk membatalkan_`,
       {
         parse_mode: 'Markdown',
@@ -934,16 +944,17 @@ export default function adminPanel(bot) {
         if (isNaN(val) || val < 1 || val > 100) {
           return ctx.reply('❌ Masukkan angka antara 1 sampai 100.');
         }
-        const ranks = await Database.getAllRankLimits();
+        const ranks    = await Database.getAllRankLimits();
         const rankData = ranks.find(r => r.rank === state.rank);
-        await Database.updateRankLimit(state.rank, val, rankData.is_active);
+        const actionLabel = { confess: 'Confess', hitme: 'Hit Me', showme: 'Show Me' }[state.actionType];
+        await Database.updateRankLimit(state.rank, state.actionType, val, rankData.is_active);
         adminInputState.delete(userId);
         await ctx.reply(
-          `✅ *Limit rank ${state.rank} diperbarui: ${val}x per window*`,
+          `✅ *Limit ${actionLabel} rank ${state.rank} diperbarui: ${val}x per window*`,
           {
             parse_mode: 'Markdown',
             reply_markup: {
-              inline_keyboard: [[{ text: '🔙 Kembali ke Rank Limits', callback_data: 'admin_rank_limits' }]]
+              inline_keyboard: [[{ text: '🔙 Kembali ke Rank', callback_data: `admin_rank_edit_${state.rank}` }]]
             }
           }
         );
