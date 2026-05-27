@@ -62,11 +62,6 @@ export default function adminPanel(bot, targetChannelId) {
       // Baris keempat - Menu Admin khusus
       [
         Markup.button.callback('⚙️ Pengaturan Bot', 'admin_settings'),
-        Markup.button.callback('🔧 Debug Info', 'admin_debug')
-      ],
-      // Baris kelima - Menu navigasi
-      [
-        Markup.button.callback('💬 Mode User', 'switch_to_user'),
         Markup.button.callback('ℹ️ Bantuan', 'btn_help')
       ]
     ];
@@ -1037,75 +1032,6 @@ export default function adminPanel(bot, targetChannelId) {
     // Kembali ke halaman rate limit
     ctx.callbackQuery.data = 'admin_set_ratelimit';
     await bot.handleUpdate({ ...ctx.update, callback_query: { ...ctx.callbackQuery, data: 'admin_set_ratelimit' } });
-  });
-
-  // Handler untuk debug info
-  bot.action('admin_debug', adminMiddleware, async (ctx) => {
-    await ctx.answerCbQuery('🔧 Memuat debug info...');
-    
-    const debugInfo = {
-      botId: ctx.botInfo?.id || 'Unknown',
-      chatId: ctx.chat.id,
-      userId: ctx.from.id,
-      timestamp: new Date().toISOString(),
-      uptime: Math.floor(process.uptime()),
-      memory: process.memoryUsage(),
-      nodeVersion: process.version,
-      env: {
-        targetChannel: process.env.TARGET_CHANNEL_ID ? '✅ Set' : '❌ Not Set',
-        discussionGroup: process.env.DISCUSSION_GROUP_ID ? '✅ Set' : '❌ Not Set',
-        adminId: process.env.ADMIN_ID ? '✅ Set' : '❌ Not Set',
-        dbUrl: process.env.DATABASE_URL ? '✅ Connected' : '❌ Not Set'
-      }
-    };
-    
-    const debugText = `🔧 *Debug Information*\n\n` +
-      `🤖 Bot ID: \`${debugInfo.botId}\`\n` +
-      `💬 Chat ID: \`${debugInfo.chatId}\`\n` +
-      `👤 User ID: \`${debugInfo.userId}\`\n` +
-      `⏰ Timestamp: \`${debugInfo.timestamp}\`\n` +
-      `🕐 Uptime: \`${debugInfo.uptime}s\`\n` +
-      `💾 Memory Used: \`${Math.round(debugInfo.memory.heapUsed / 1024 / 1024)}MB\`\n` +
-      `💾 Memory Total: \`${Math.round(debugInfo.memory.rss / 1024 / 1024)}MB\`\n` +
-      `🟢 Node Version: \`${debugInfo.nodeVersion}\`\n\n` +
-      `📋 *Environment Status:*\n` +
-      `📺 Target Channel: ${debugInfo.env.targetChannel}\n` +
-      `💬 Discussion Group: ${debugInfo.env.discussionGroup}\n` +
-      `👑 Admin ID: ${debugInfo.env.adminId}\n` +
-      `🗄️ Database: ${debugInfo.env.dbUrl}`;
-    
-    await ctx.editMessageText(debugText, { 
-      parse_mode: 'Markdown',
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: '🔄 Refresh', callback_data: 'admin_debug' },
-            { text: '📊 System Info', callback_data: 'admin_system_info' }
-          ],
-          [
-            { text: '📝 Error Logs', callback_data: 'admin_error_logs' },
-            { text: '🔍 Activity Logs', callback_data: 'admin_activity_logs' }
-          ],
-          [{ text: '🏠 Kembali', callback_data: 'back_to_admin' }]
-        ]
-      }
-    });
-  });
-
-  // Handler untuk switch ke mode user
-  bot.action('switch_to_user', adminMiddleware, async (ctx) => {
-    await ctx.answerCbQuery('💬 Beralih ke mode user...');
-    await ctx.editMessageText(
-      `👤 *Mode User*\n\nAnda sekarang dalam mode user biasa, Admin ${ctx.from.first_name}`,
-      {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '🔙 Kembali ke Admin Panel', callback_data: 'back_to_admin' }]
-          ]
-        }
-      }
-    );
   });
 
   // Menu utama rank settings
