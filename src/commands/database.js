@@ -27,6 +27,156 @@ export class Database {
     return rows[0] || null;
   }
 
+  // ─── User management queries (admin panel) ───────────────────────────────────
+
+  /**
+   * Ambil daftar user dengan pagination
+   */
+  static async getUsersPaginated(limit = 10, offset = 0) {
+    const [rows] = await db.query(
+      `SELECT u.telegram_id, u.username, u.rank, u.gender, u.origin, u.registered_at, u.is_active,
+              COUNT(c.id) AS total_confessions
+      FROM \`users\` u
+      LEFT JOIN \`confessions\` c ON u.telegram_id = c.telegram_id
+      GROUP BY u.telegram_id
+      ORDER BY u.registered_at DESC
+      LIMIT ? OFFSET ?`,
+      [limit, offset]
+    );
+    return rows;
+  }
+
+  /**
+   * Hitung total user
+   */
+  static async countAllUsers() {
+    const [[{ total }]] = await db.query('SELECT COUNT(*) AS total FROM `users`');
+    return total;
+  }
+
+  /**
+   * Cari user berdasarkan telegram_id atau username
+   */
+  static async searchUsers(query, limit = 10, offset = 0) {
+    const isNumeric = /^\d+$/.test(query.trim());
+    let rows;
+
+    if (isNumeric) {
+      [rows] = await db.query(
+        `SELECT u.telegram_id, u.username, u.rank, u.gender, u.origin, u.registered_at, u.is_active,
+                COUNT(c.id) AS total_confessions
+        FROM \`users\` u
+        LEFT JOIN \`confessions\` c ON u.telegram_id = c.telegram_id
+        WHERE u.telegram_id = ?
+        GROUP BY u.telegram_id
+        LIMIT ? OFFSET ?`,
+        [parseInt(query.trim()), limit, offset]
+      );
+    } else {
+      const like = `%${query.trim()}%`;
+      [rows] = await db.query(
+        `SELECT u.telegram_id, u.username, u.rank, u.gender, u.origin, u.registered_at, u.is_active,
+                COUNT(c.id) AS total_confessions
+        FROM \`users\` u
+        LEFT JOIN \`confessions\` c ON u.telegram_id = c.telegram_id
+        WHERE u.username LIKE ?
+        GROUP BY u.telegram_id
+        LIMIT ? OFFSET ?`,
+        [like, limit, offset]
+      );
+    }
+    return rows;
+  }
+
+  /**
+   * Hitung hasil pencarian user
+   */
+  static async countSearchUsers(query) {
+    const isNumeric = /^\d+$/.test(query.trim());
+    let rows;
+    if (isNumeric) {
+      [[{ total: rows }]] = await db.query(
+        'SELECT COUNT(*) AS total FROM `users` WHERE `telegram_id` = ?',
+        [parseInt(query.trim())]
+      );
+    } else {
+      const like = `%${query.trim()}%`;
+      [[{ total: rows }]] = await db.query(
+        'SELECT COUNT(*) AS total FROM `users` WHERE `username` LIKE ?',
+        [like]
+      );
+    }
+    return rows;
+  }
+
+  /**
+   * Ambil daftar user yang di-ban (is_active = 0) dengan pagination
+   */
+  static async getBannedUsersPaginated(limit = 10, offset = 0) {
+    const [rows] = await db.query(
+      `SELECT telegram_id, username, rank, gender, origin, registered_at
+      FROM \`users\`
+      WHERE \`is_active\` = 0
+      ORDER BY \`registered_at\` DESC
+      LIMIT ? OFFSET ?`,
+      [limit, offset]
+    );
+    return rows;
+  }
+
+  /**
+   * Hitung user baru dalam rentang waktu tertentu
+   */
+  static async countNewUsers() {
+    const [[d1]] = await db.query(
+      "SELECT COUNT(*) AS total FROM `users` WHERE `registered_at` >= NOW() - INTERVAL 1 DAY"
+    );
+    const [[d7]] = await db.query(
+      "SELECT COUNT(*) AS total FROM `users` WHERE `registered_at` >= NOW() - INTERVAL 7 DAY"
+    );
+    const [[d30]] = await db.query(
+      "SELECT COUNT(*) AS total FROM `users` WHERE `registered_at` >= NOW() - INTERVAL 30 DAY"
+    );
+    return { day1: d1.total, day7: d7.total, day30: d30.total };
+  }
+
+  /**
+   * Ban user: set is_active = 0
+   */
+  static async banUser(telegramId) {
+    await db.query(
+      'UPDATE `users` SET `is_active` = 0 WHERE `telegram_id` = ?',
+      [telegramId]
+    );
+  }
+
+  /**
+   * Unban user: set is_active = 1
+   */
+  static async unbanUser(telegramId) {
+    await db.query(
+      'UPDATE `users` SET `is_active` = 1 WHERE `telegram_id` = ?',
+      [telegramId]
+    );
+  }
+
+  /**
+   * Top 5 user berdasarkan jumlah action tertentu (confess / hitme / showme)
+   */
+  static async getTopUsersByAction(actionType, limit = 5) {
+    const [rows] = await db.query(
+      `SELECT u.telegram_id, u.username, u.rank, COUNT(a.id) AS total
+      FROM \`action_rate_limits\` a
+      JOIN \`users\` u ON a.telegram_id = u.telegram_id
+      WHERE a.action_type = ?
+      GROUP BY a.telegram_id
+      ORDER BY total DESC
+      LIMIT ?`,
+      [actionType, limit]
+    );
+    return rows;
+  }
+
   /**
    * Get total confessions by user
    */
