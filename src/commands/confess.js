@@ -9,9 +9,6 @@ import showMeHandler from './showme.js';
  * @param {string|number} targetChannelId - ID channel atau group untuk publish
  */
 export default function confessCommand(bot, targetChannelId) {
-  // ✅ FIX BUG #4: Validasi targetChannelId di awal. Jika tidak di-set,
-  // lempar error saat inisialisasi agar masalah terdeteksi segera,
-  // bukan saat user pertama kali mencoba kirim confession.
   if (!targetChannelId) {
     throw new Error(
       '❌ KONFIG ERROR: TARGET_CHANNEL_ID tidak di-set di environment variables!\n' +
@@ -20,10 +17,8 @@ export default function confessCommand(bot, targetChannelId) {
   }
 
   const pending = new Map();
-  // const LIMIT_MS = 8 * 60 * 60 * 1000;
-  // const MAX_CONFESSIONS = 1; // ubah angka ini untuk nambah kuota, misal 
   
-  // Ambil config rate limit dari database (di-cache per request, bukan global)
+  // Ambil config rate limit dari database
   async function getRateLimitConfig(userId) {
     const cfg = await Database.getConfigs([
       'confession_window_hours',
@@ -219,9 +214,6 @@ export default function confessCommand(bot, targetChannelId) {
 
       console.log('✅ Message sent successfully to channel, message_id:', result.message_id);
 
-      // ✅ FIX BUG #5: Tambahkan tombol Show Me via edit, dengan try-catch tersendiri
-      // agar jika edit gagal, confession yang sudah terkirim tetap valid dan user
-      // tetap mendapat pesan sukses — tidak perlu rollback seluruh proses.
       try {
         inlineKeyboard.push(showMeSystem.createShowMeButton(result.message_id));
         await ctx.telegram.editMessageReplyMarkup(
@@ -232,8 +224,6 @@ export default function confessCommand(bot, targetChannelId) {
         );
         console.log('✅ Show Me button added to message');
       } catch (editErr) {
-        // Confession sudah terkirim, hanya tombol Show Me yang gagal ditambah.
-        // Log error tapi jangan hentikan proses atau notifikasi error ke user.
         console.error('⚠️ Gagal menambahkan tombol Show Me (confession tetap terkirim):', editErr.message);
       }
 
@@ -294,7 +284,6 @@ export default function confessCommand(bot, targetChannelId) {
   }
 
   // Debug commands untuk testing
-  // ✅ FIX MINOR: Hapus hardcoded ID 123456789, hanya gunakan ADMIN_ID dari env
   bot.command('debug_pending', async (ctx) => {
     if (ctx.from.id === parseInt(process.env.ADMIN_ID)) {
       const pendingList = Array.from(pending.entries()).map(([id, data]) =>
@@ -343,8 +332,8 @@ function formatConfessionMessage(text, user) {
   const safeOrigin = user.origin || 'Unknown';
 
   return `💭 *ANONYMOUS CONFESSION*\n\n` +
-         `${text}\n\n` +
-         `━━━━━━━━━━━━━━━━━━━\n` +
+          `${text}\n\n` +
+          `━━━━━━━━━━━━━━━━━━━\n` +
          `${genderEmoji} Gender: *${safeGender}*\n` +
          `${rankEmoji} Rank: *${safeRank}*\n` +
          `📍 Origin: *${safeOrigin}*`;

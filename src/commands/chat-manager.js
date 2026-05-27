@@ -11,53 +11,6 @@ export class ChatManager {
   }
 
   /**
-   * Setup message handler for anonymous chat
-   */
-  setupMessageHandler() {
-    console.log('Setting up message handler for anonymous chat');
-
-    // Handler untuk pesan dalam anonymous chat - HANYA DI PRIVATE CHAT
-    // this.bot.on('text', async (ctx, next) => {
-    //   try {
-    //     console.log('--- [DEBUG] on text handler triggered ---');
-    //     console.log('Current activeChatUsers:', Array.from(this.activeChatUsers.entries()));
-    //     // PENTING: Hanya proses jika ini adalah private chat
-    //     if (ctx.chat.type !== 'private') {
-    //       console.log('Message from non-private chat, skipping');
-    //       return next();
-    //     }
-
-    //     const userId = ctx.from.id;
-    //     const text = ctx.message.text;
-
-    //     console.log(`[DEBUG] Received message from user ${userId}: "${text}"`);
-
-    //     // Skip if it's a command
-    //     if (text.startsWith('/')) {
-    //       console.log('Message is a command, skipping');
-    //       return next();
-    //     }
-
-    //     // Check if user is in active chat
-    //     if (!this.activeChatUsers.has(userId)) {
-    //       console.log(`[DEBUG] User ${userId} not in active chat. Current map:`, Array.from(this.activeChatUsers.entries()));
-    //       return next();
-    //     }
-
-    //     console.log(`[DEBUG] Processing anonymous message from user ${userId}`);
-
-    //     const success = await this.sendAnonymousMessage(ctx, userId, text);
-    //     if (!success) {
-    //       await ctx.reply('❌ Gagal mengirim pesan. Silakan coba lagi.');
-    //     }
-    //   } catch (error) {
-    //     console.error('Error in message handler:', error);
-    //     await ctx.reply('❌ Gagal mengirim pesan. Silakan coba lagi.');
-    //   }
-    // });
-  }
-
-  /**
    * Send anonymous message between users
    */
   async sendAnonymousMessage(ctx, userId, text) {
@@ -142,15 +95,6 @@ export class ChatManager {
         await ctx.reply(errorMsg);
         return false;
       }
-
-      // Confirm message sent to sender
-      // await ctx.reply(
-      //   '✅ *Pesan Terkirim!*\n\n' +
-      //   `📤 Pesan: "${text.length > 50 ? text.substring(0, 50) + '...' : text}"\n\n` +
-      //   '🤖 Bot telah meneruskan pesan kamu ke lawan chat\n' +
-      //   '⏳ Menunggu balasan...',
-      //   { parse_mode: 'Markdown' }
-      // );
 
       console.log(`Anonymous message successfully processed for session ${sessionId}`);
       return true;

@@ -1,4 +1,3 @@
-// src/bot.js
 import { Telegraf, session } from 'telegraf';
 import dotenv from 'dotenv';
 import startCommand from './commands/start.js';

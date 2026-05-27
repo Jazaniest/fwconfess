@@ -110,10 +110,10 @@ export class Database {
   static async getActiveChatSession(userId) {
     const [rows] = await db.query(
       `SELECT * FROM \`chat_sessions\`
-       WHERE (\`confessor_id\` = ? OR \`hitter_id\` = ?)
-         AND \`is_active\` = 1
-       ORDER BY \`created_at\` DESC
-       LIMIT 1`,
+        WHERE (\`confessor_id\` = ? OR \`hitter_id\` = ?)
+          AND \`is_active\` = 1
+        ORDER BY \`created_at\` DESC
+        LIMIT 1`,
       [userId, userId]
     );
     return rows[0] || null;
@@ -194,8 +194,8 @@ export class Database {
   static async updateRevealStatus(sessionId, userId, revealed) {
     await db.query(
       `INSERT INTO \`reveal_status\` (\`session_id\`, \`user_id\`, \`revealed\`)
-       VALUES (?, ?, ?)
-       ON DUPLICATE KEY UPDATE \`revealed\` = VALUES(\`revealed\`), \`updated_at\` = NOW()`,
+        VALUES (?, ?, ?)
+        ON DUPLICATE KEY UPDATE \`revealed\` = VALUES(\`revealed\`), \`updated_at\` = NOW()`,
       [sessionId, userId, revealed]
     );
     const [rows] = await db.query(
@@ -274,10 +274,10 @@ export class Database {
   static async cleanupInactiveSessions() {
     const [result] = await db.query(
       `UPDATE \`chat_sessions\`
-       SET \`is_active\` = 0, \`ended_at\` = NOW(), \`updated_at\` = NOW()
-       WHERE \`is_active\` = 1
-         AND \`ended_at\` IS NULL
-         AND \`created_at\` < DATE_SUB(NOW(), INTERVAL 24 HOUR)`
+        SET \`is_active\` = 0, \`ended_at\` = NOW(), \`updated_at\` = NOW()
+        WHERE \`is_active\` = 1
+          AND \`ended_at\` IS NULL
+          AND \`created_at\` < DATE_SUB(NOW(), INTERVAL 24 HOUR)`
     );
     return result.affectedRows;
   }
@@ -288,11 +288,11 @@ export class Database {
   static async getUserActiveSessionDetailed(userId) {
     const [rows] = await db.query(
       `SELECT cs.*, c.message_text AS confession_text
-       FROM \`chat_sessions\` cs
-       JOIN \`confessions\` c ON cs.\`confession_id\` = c.\`id\`
-       WHERE (cs.\`confessor_id\` = ? OR cs.\`hitter_id\` = ?)
-         AND cs.\`is_active\` = 1
-       LIMIT 1`,
+        FROM \`chat_sessions\` cs
+        JOIN \`confessions\` c ON cs.\`confession_id\` = c.\`id\`
+        WHERE (cs.\`confessor_id\` = ? OR cs.\`hitter_id\` = ?)
+          AND cs.\`is_active\` = 1
+        LIMIT 1`,
       [userId, userId]
     );
     return rows[0] || null;
@@ -321,7 +321,7 @@ export class Database {
   static async getActiveUsersToday() {
     const [[{ total }]] = await db.query(
       `SELECT COUNT(*) AS total FROM \`users\`
-       WHERE DATE(\`registered_at\`) = CURDATE()`
+        WHERE DATE(\`registered_at\`) = CURDATE()`
     );
     return total;
   }
@@ -543,31 +543,6 @@ export class Database {
     return rows;
   }
 
-  // Ambil limit confession untuk rank tertentu
-  // static async getConfessionLimitByRank(rank) {
-  //   const [rows] = await db.query(
-  //     'SELECT `max_count` FROM `rank_confession_limits` WHERE `rank` = ?',
-  //     [rank]
-  //   );
-  //   return rows[0] ? rows[0].max_count : 1;
-  // }
-
-  // Ambil semua rank limits (untuk admin panel)
-  // static async getAllRankLimits() {
-  //   const [rows] = await db.query(
-  //     'SELECT * FROM `rank_confession_limits` ORDER BY `max_count` ASC'
-  //   );
-  //   return rows;
-  // }
-
-  // Update limit dan status aktif sebuah rank
-  // static async updateRankLimit(rank, maxCount, isActive) {
-  //   await db.query(
-  //     `UPDATE \`rank_confession_limits\` SET \`max_count\` = ?, \`is_active\` = ? WHERE \`rank\` = ?`,
-  //     [maxCount, isActive, rank]
-  //   );
-  // }
-
   // Ambil rank efektif user — jika rank system off, return 'member'
   static async getEffectiveRank(telegramId) {
     const rankEnabled = await this.getConfig('rank_system_enabled', '0');
@@ -576,26 +551,4 @@ export class Database {
     const user = await this.getUserById(telegramId);
     return user?.rank || 'member';
   }
-
-  // Ambil rank yang aktif saja (untuk ditampilkan di user)
-  // static async getActiveRanks() {
-  //   const [rows] = await db.query(
-  //     'SELECT `rank`, `max_count` FROM `rank_confession_limits` WHERE `is_active` = 1 AND `rank` != ? ORDER BY `max_count` ASC',
-  //     ['member']
-  //   );
-  //   return rows;
-  // }
-
-  // ─── CATATAN: syncSessionsWithDatabase ...
-  //
-  // ✅ FIX BUG #9: Dua method ini DIHAPUS dari class Database karena keduanya
-  // mengakses `this.activeChatUsers` — sebuah Map in-memory milik ChatManager,
-  // bukan milik class Database yang bersifat static/pure-DB.
-  // Akibatnya setiap kali dipanggil, `this.activeChatUsers` selalu undefined dan
-  // seluruh logika sync tidak berjalan sama sekali.
-  //
-  // Kedua method ini sudah diimplementasikan dengan benar di ChatManager
-  // (chat-manager.js) dan di situlah seharusnya mereka berada.
-  // Kode pemanggil (hitme.js) sudah memanggil chatManager.syncSessionsWithDatabase()
-  // dan chatManager.forceCleanupUserSession() — tidak perlu diubah.
 }

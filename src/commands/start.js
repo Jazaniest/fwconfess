@@ -83,15 +83,8 @@ async function showMainMenu(ctx) {
  * @param {Telegraf} bot
  */
 export default function startCommand(bot) {
-  // ✅ FIX BUG #1: adminSystem dibuat PERTAMA di dalam startCommand(),
-  // sehingga bisa diakses oleh membershipMiddleware yang juga di dalam scope yang sama.
   const adminSystem = adminPanel(bot);
 
-  /**
-   * ✅ FIX BUG #1: membershipMiddleware DIPINDAHKAN ke dalam startCommand()
-   * agar adminSystem berada dalam scope yang benar.
-   * Sebelumnya fungsi ini ada di luar dan menyebabkan ReferenceError.
-   */
   async function membershipMiddleware(ctx, next) {
     const userId = ctx.from.id;
 
@@ -208,11 +201,6 @@ export default function startCommand(bot) {
         parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [
-            [
-              // Fitur ini memerlukan pertimbangan lebih lanjut untuk di update di masa depan, karena melibatkan perubahan data user yang sensitif.
-              // { text: '📝 Edit Profile', callback_data: 'edit_profile' },
-              // { text: '📊 My Stats', callback_data: 'my_stats' }
-            ],
             [{ text: '🏠 Menu Utama', callback_data: 'back_to_main' }]
           ]
         }
@@ -234,20 +222,16 @@ export default function startCommand(bot) {
     await ctx.answerCbQuery();
 
     try {
-      const telegramId = ctx.from.id; // Mengambil ID Telegram user yang menekan tombol
+      const telegramId = ctx.from.id;
 
-      // 1. Ambil data menfess dari database (Misal nama class-nya ConfessionModel)
-      // Sesuai dengan nama class tempat fungsi saveConfession kamu berada
       const confessions = await Database.getConfessionsByUserId(telegramId, 5);
 
-      // 2. Buat teks dinamis berdasarkan data yang didapat
       let listText = '';
       
       if (confessions.length === 0) {
         listText = `_Kamu belum pernah mengirim menfess atau data tidak ditemukan._\n\n`;
       } else {
         confessions.forEach((cf, index) => {
-          // Memotong teks jika terlalu panjang agar chat tidak penuh
           const shortText = cf.message_text.length > 60 
             ? cf.message_text.substring(0, 60) + '...' 
             : cf.message_text;
@@ -262,10 +246,9 @@ export default function startCommand(bot) {
         `${listText}` +
         `💡 Gunakan tombol di bawah untuk menyegarkan halaman atau kembali ke menu.`;
 
-      // 3. Kirim/Edit pesan dengan data terbaru
       await ctx.reply(viewText, {
         parse_mode: 'Markdown',
-        disable_web_page_preview: true, // Agar link preview telegram tidak menumpuk di chat
+        disable_web_page_preview: true,
         reply_markup: {
           inline_keyboard: [
             [
@@ -273,8 +256,6 @@ export default function startCommand(bot) {
               { text: '💬 Ke Grup', url: 'https://t.me/fwb_confesschat' }
             ],
             [
-              // Tombol My Menfess bisa diaktifkan jika kamu punya handler 'my_menfess'
-              // { text: '📝 My Menfess', callback_data: 'my_menfess' }, 
               { text: '🔄 Refresh', callback_data: 'btn_view' },
               { text: '🏠 Menu Utama', callback_data: 'back_to_main' }
             ]

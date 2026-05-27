@@ -27,13 +27,6 @@ export class RequestManager {
     };
   }
 
-  // _renderMsg(template, vars = {}) {
-  //   return Object.entries(vars).reduce(
-  //     (str, [k, v]) => str.replaceAll(`{${k}}`, v),
-  //     template
-  //   );
-  // }
-
   /**
    * Setup request handlers
    */

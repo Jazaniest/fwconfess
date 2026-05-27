@@ -4,12 +4,6 @@ import { ChatManager } from './chat-manager.js';
 import { RevealManager } from './reveal-manager.js';
 import { RequestManager } from './request-manager.js';
 
-/**
- * ✅ FIX BUG #6: Helper isAdmin terpusat, pakai ADMIN_ID dari env — bukan cek rank DB.
- * Sebelumnya semua command cek `user.rank !== 'Admin'` (kapital), padahal rank di DB
- * disimpan lowercase ('admin'). Selain itu admin_id dari env jauh lebih aman dan
- * tidak bergantung pada data di database yang bisa berubah.
- */
 function isAdminUser(userId) {
   const adminId = process.env.ADMIN_ID;
   return adminId && userId.toString() === adminId.toString();

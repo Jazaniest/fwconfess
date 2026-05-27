@@ -31,30 +31,6 @@ export default function showMeHandler(bot) {
     return text.replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, '\\$&');
   }
 
-  // async function getRLConfig(userId) {
-  //   const cfg = await Database.getConfigs([
-  //     'confession_window_hours',
-  //     'ratelimit_msg_hit',
-  //   ]);
-  //   const effectiveRank = await Database.getEffectiveRank(userId);
-  //   const maxCount      = await Database.getActionLimitByRank(effectiveRank, 'showme');
-  //   const windowHours   = parseFloat(cfg['confession_window_hours'] || '8');
-  //   return {
-  //     maxCount,
-  //     windowMs   : windowHours * 60 * 60 * 1000,
-  //     windowHours,
-  //     // Pesan default sudah pakai escape manual, tapi nilai dari DB perlu di-escape saat render
-  //     msgHit: cfg['ratelimit_msg_hit'] || '⏰ Kamu sudah melakukan Show Me {count}x dalam {hours} jam terakhir\\.\n\nCoba lagi setelah: *{next_time}*',
-  //   };
-  // }
-
-  // function renderMsg(template, vars = {}) {
-  //   return Object.entries(vars).reduce(
-  //     (str, [k, v]) => str.replaceAll(`{${k}}`, v),
-  //     template
-  //   );
-  // }
-
   function generateRequestId() {
     return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
