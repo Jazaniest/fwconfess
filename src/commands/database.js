@@ -105,6 +105,58 @@ export class Database {
   }
 
   /**
+   * Cek apakah user sudah pernah report confession tertentu
+   */
+  static async hasUserReported(reporterId, confessionId) {
+    const [[{ total }]] = await db.query(
+      'SELECT COUNT(*) AS total FROM `reports` WHERE `reporter_id` = ? AND `target_message_id` = ?',
+      [reporterId, confessionId]
+    );
+    return total > 0;
+  }
+
+  /**
+   * Ambil detail laporan beserta info confession dan reporter
+   */
+  static async getReportWithDetail(reportId) {
+    const [rows] = await db.query(
+      `SELECT r.*, 
+              c.message_text AS confession_text, 
+              c.telegram_id AS confessor_id,
+              c.channel_message_id
+      FROM \`reports\` r
+      JOIN \`confessions\` c ON r.\`target_message_id\` = c.\`id\`
+      WHERE r.\`id\` = ?`,
+      [reportId]
+    );
+    return rows[0] || null;
+  }
+
+  /**
+   * Ambil laporan dengan pagination dan filter status
+   */
+  static async getReportsPaginated(status = null, limit = 5, offset = 0) {
+    const whereClause = status ? 'WHERE r.`status` = ?' : '';
+    const params = status
+      ? [status, limit, offset]
+      : [limit, offset];
+
+    const [rows] = await db.query(
+      `SELECT r.*, 
+              c.message_text AS confession_text,
+              c.telegram_id AS confessor_id,
+              c.channel_message_id
+      FROM \`reports\` r
+      JOIN \`confessions\` c ON r.\`target_message_id\` = c.\`id\`
+      ${whereClause}
+      ORDER BY r.\`created_at\` DESC
+      LIMIT ? OFFSET ?`,
+      params
+    );
+    return rows;
+  }
+
+  /**
    * Get active chat session by user ID
    */
   static async getActiveChatSession(userId) {
