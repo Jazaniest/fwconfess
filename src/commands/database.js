@@ -406,69 +406,107 @@ export class Database {
   // ─── Rate limit queries ──────────────────────────────────────────────────────
 
   /**
-   * Hitung berapa confession yang dikirim user dalam window waktu tertentu.
+   * Hitung berapa action yang dikirim user dalam window waktu tertentu.
    * @param {number} telegramId
-   * @param {number} windowMs - window dalam milidetik (default 8 jam)
+   * @param {'confess'|'hitme'|'showme'} actionType
+   * @param {number} windowMs
    */
-  static async countRecentConfessions(telegramId, windowMs = 8 * 60 * 60 * 1000) {
+  static async countRecentActions(telegramId, actionType, windowMs = 8 * 60 * 60 * 1000) {
     const windowSec = Math.floor(windowMs / 1000);
     const [[{ total }]] = await db.query(
-      `SELECT COUNT(*) AS total FROM \`confession_rate_limits\`
+      `SELECT COUNT(*) AS total FROM \`action_rate_limits\`
         WHERE \`telegram_id\` = ?
+          AND \`action_type\` = ?
           AND \`sent_at\` > DATE_SUB(NOW(), INTERVAL ? SECOND)`,
-      [telegramId, windowSec]
+      [telegramId, actionType, windowSec]
     );
     return total;
   }
 
   /**
-   * Ambil timestamp confession terakhir user dalam window waktu tertentu.
-   * Dipakai untuk menghitung "kapan boleh kirim lagi".
+   * Ambil timestamp action terlama user dalam window (untuk hitung kapan boleh lagi).
+   * @param {number} telegramId
+   * @param {'confess'|'hitme'|'showme'} actionType
+   * @param {number} windowMs
    */
-  static async getLastConfessionTime(telegramId, windowMs = 8 * 60 * 60 * 1000) {
+  static async getOldestActionTime(telegramId, actionType, windowMs = 8 * 60 * 60 * 1000) {
     const windowSec = Math.floor(windowMs / 1000);
     const [[row]] = await db.query(
-      `SELECT \`sent_at\` FROM \`confession_rate_limits\`
+      `SELECT \`sent_at\` FROM \`action_rate_limits\`
         WHERE \`telegram_id\` = ?
+          AND \`action_type\` = ?
           AND \`sent_at\` > DATE_SUB(NOW(), INTERVAL ? SECOND)
         ORDER BY \`sent_at\` ASC
         LIMIT 1`,
-      [telegramId, windowSec]
+      [telegramId, actionType, windowSec]
     );
-    return row ? new Date(row.sent_at) : null;
+    // Fallback ke NOW() jika tidak ada data — caller tetap bisa hitung nextAllowed
+    return row ? new Date(row.sent_at) : new Date();
   }
 
   /**
-   * Catat satu confession terkirim (dipanggil setelah berhasil publish).
+   * Catat satu action terkirim.
+   * @param {number} telegramId
+   * @param {'confess'|'hitme'|'showme'} actionType
    */
-  static async recordConfessionSent(telegramId) {
+  static async recordActionSent(telegramId, actionType) {
     await db.query(
-      'INSERT INTO `confession_rate_limits` (`telegram_id`) VALUES (?)',
-      [telegramId]
+      'INSERT INTO `action_rate_limits` (`telegram_id`, `action_type`) VALUES (?, ?)',
+      [telegramId, actionType]
     );
   }
 
   /**
-   * Bersihkan data rate limit yang sudah lebih tua dari windowMs.
-   * Jalankan periodik (misal setiap 24 jam) supaya tabel tidak membengkak.
+   * Bersihkan data rate limit lama supaya tabel tidak membengkak.
+   * @param {number} windowMs
    */
   static async cleanupOldRateLimits(windowMs = 8 * 60 * 60 * 1000) {
     const windowSec = Math.floor(windowMs / 1000);
     const [result] = await db.query(
-      `DELETE FROM \`confession_rate_limits\`
+      `DELETE FROM \`action_rate_limits\`
         WHERE \`sent_at\` < DATE_SUB(NOW(), INTERVAL ? SECOND)`,
       [windowSec]
     );
     return result.affectedRows;
   }
 
-  // Ambil limit confession untuk rank tertentu
-  static async getConfessionLimitByRank(rank) {
+  // Backward-compat: dipakai confess.js — arahkan ke method generik
+  static async countRecentConfessions(telegramId, windowMs) {
+    return this.countRecentActions(telegramId, 'confess', windowMs);
+  }
+
+  static async getLastConfessionTime(telegramId, windowMs) {
+    return this.getOldestActionTime(telegramId, 'confess', windowMs);
+  }
+
+  static async recordConfessionSent(telegramId) {
+    return this.recordActionSent(telegramId, 'confess');
+  }
+
+  // ─── Rank limit queries ──────────────────────────────────────────────────────
+
+  /**
+   * Ambil limit action untuk rank tertentu.
+   * @param {string} rank
+   * @param {'confess'|'hitme'|'showme'} actionType
+   */
+  static async getActionLimitByRank(rank, actionType) {
+    const colMap = {
+      confess : 'max_count',
+      hitme   : 'hitme_max_count',
+      showme  : 'showme_max_count',
+    };
+    const col = colMap[actionType] || 'max_count';
     const [rows] = await db.query(
-      'SELECT `max_count` FROM `rank_confession_limits` WHERE `rank` = ?',
+      `SELECT \`${col}\` AS max_count FROM \`rank_confession_limits\` WHERE \`rank\` = ?`,
       [rank]
     );
     return rows[0] ? rows[0].max_count : 1;
+  }
+
+  // Alias tetap tersedia agar kode lama di confess.js tidak perlu diubah dulu
+  static async getConfessionLimitByRank(rank) {
+    return this.getActionLimitByRank(rank, 'confess');
   }
 
   // Ambil semua rank limits (untuk admin panel)
@@ -479,13 +517,56 @@ export class Database {
     return rows;
   }
 
-  // Update limit dan status aktif sebuah rank
-  static async updateRankLimit(rank, maxCount, isActive) {
+  // Update limit sebuah rank untuk action tertentu
+  static async updateRankLimit(rank, actionType, maxCount, isActive) {
+    const colMap = {
+      confess : 'max_count',
+      hitme   : 'hitme_max_count',
+      showme  : 'showme_max_count',
+    };
+    const col = colMap[actionType] || 'max_count';
     await db.query(
-      `UPDATE \`rank_confession_limits\` SET \`max_count\` = ?, \`is_active\` = ? WHERE \`rank\` = ?`,
+      `UPDATE \`rank_confession_limits\` SET \`${col}\` = ?, \`is_active\` = ? WHERE \`rank\` = ?`,
       [maxCount, isActive, rank]
     );
   }
+
+  // Ambil rank yang aktif (untuk ditampilkan ke user)
+  static async getActiveRanks() {
+    const [rows] = await db.query(
+      `SELECT \`rank\`, \`max_count\`, \`hitme_max_count\`, \`showme_max_count\`
+        FROM \`rank_confession_limits\`
+        WHERE \`is_active\` = 1 AND \`rank\` != ?
+        ORDER BY \`max_count\` ASC`,
+      ['member']
+    );
+    return rows;
+  }
+
+  // Ambil limit confession untuk rank tertentu
+  // static async getConfessionLimitByRank(rank) {
+  //   const [rows] = await db.query(
+  //     'SELECT `max_count` FROM `rank_confession_limits` WHERE `rank` = ?',
+  //     [rank]
+  //   );
+  //   return rows[0] ? rows[0].max_count : 1;
+  // }
+
+  // Ambil semua rank limits (untuk admin panel)
+  // static async getAllRankLimits() {
+  //   const [rows] = await db.query(
+  //     'SELECT * FROM `rank_confession_limits` ORDER BY `max_count` ASC'
+  //   );
+  //   return rows;
+  // }
+
+  // Update limit dan status aktif sebuah rank
+  // static async updateRankLimit(rank, maxCount, isActive) {
+  //   await db.query(
+  //     `UPDATE \`rank_confession_limits\` SET \`max_count\` = ?, \`is_active\` = ? WHERE \`rank\` = ?`,
+  //     [maxCount, isActive, rank]
+  //   );
+  // }
 
   // Ambil rank efektif user — jika rank system off, return 'member'
   static async getEffectiveRank(telegramId) {
@@ -497,13 +578,13 @@ export class Database {
   }
 
   // Ambil rank yang aktif saja (untuk ditampilkan di user)
-  static async getActiveRanks() {
-    const [rows] = await db.query(
-      'SELECT `rank`, `max_count` FROM `rank_confession_limits` WHERE `is_active` = 1 AND `rank` != ? ORDER BY `max_count` ASC',
-      ['member']
-    );
-    return rows;
-  }
+  // static async getActiveRanks() {
+  //   const [rows] = await db.query(
+  //     'SELECT `rank`, `max_count` FROM `rank_confession_limits` WHERE `is_active` = 1 AND `rank` != ? ORDER BY `max_count` ASC',
+  //     ['member']
+  //   );
+  //   return rows;
+  // }
 
   // ─── CATATAN: syncSessionsWithDatabase ...
   //
