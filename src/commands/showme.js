@@ -11,6 +11,50 @@ export default function showMeHandler(bot) {
   const ownerQueues = new Map();
   const REQUEST_EXPIRY = 24 * 60 * 60 * 1000;
 
+  // ─── Rate limit helper ───────────────────────────────────────────────────────
+
+  async function getRLConfig(userId) {
+    const windowHours = parseFloat(
+      await Database.getConfig('confession_window_hours', '8')
+    );
+    const effectiveRank = await Database.getEffectiveRank(userId);
+    const maxCount      = await Database.getActionLimitByRank(effectiveRank, 'showme');
+    return {
+      maxCount,
+      windowMs  : windowHours * 60 * 60 * 1000,
+      windowHours,
+    };
+  }
+
+  // Escape semua karakter reserved MarkdownV2
+  function escapeMarkdownV2(text) {
+    return text.replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, '\\$&');
+  }
+
+  // async function getRLConfig(userId) {
+  //   const cfg = await Database.getConfigs([
+  //     'confession_window_hours',
+  //     'ratelimit_msg_hit',
+  //   ]);
+  //   const effectiveRank = await Database.getEffectiveRank(userId);
+  //   const maxCount      = await Database.getActionLimitByRank(effectiveRank, 'showme');
+  //   const windowHours   = parseFloat(cfg['confession_window_hours'] || '8');
+  //   return {
+  //     maxCount,
+  //     windowMs   : windowHours * 60 * 60 * 1000,
+  //     windowHours,
+  //     // Pesan default sudah pakai escape manual, tapi nilai dari DB perlu di-escape saat render
+  //     msgHit: cfg['ratelimit_msg_hit'] || '⏰ Kamu sudah melakukan Show Me {count}x dalam {hours} jam terakhir\\.\n\nCoba lagi setelah: *{next_time}*',
+  //   };
+  // }
+
+  // function renderMsg(template, vars = {}) {
+  //   return Object.entries(vars).reduce(
+  //     (str, [k, v]) => str.replaceAll(`{${k}}`, v),
+  //     template
+  //   );
+  // }
+
   function generateRequestId() {
     return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
@@ -106,6 +150,21 @@ export default function showMeHandler(bot) {
         );
       }
 
+      // ─── Rate limit check ─────────────────────────────────────────────────
+      const rlCfg       = await getRLConfig(requesterId);
+      const recentCount = await Database.countRecentActions(requesterId, 'showme', rlCfg.windowMs);
+
+      if (recentCount >= rlCfg.maxCount) {
+        const oldest      = await Database.getOldestActionTime(requesterId, 'showme', rlCfg.windowMs);
+        const nextAllowed = new Date(oldest.getTime() + rlCfg.windowMs);
+        const nextTimeStr = escapeMarkdownV2(nextAllowed.toLocaleString('id-ID'));
+        return ctx.telegram.sendMessage(
+          requesterId,
+          `⏰ *Kamu sudah melakukan Show Me ${rlCfg.maxCount}x dalam ${rlCfg.windowHours} jam terakhir\\.*\n\nCoba lagi setelah: ${nextTimeStr}`,
+          { parse_mode: 'MarkdownV2' }
+        );
+      }
+
       const confession = await Database.getConfessionByChannelMessageId(messageId);
       if (!confession) {
         return ctx.telegram.sendMessage(requesterId, '❌ Confession tidak ditemukan\\.', { parse_mode: 'MarkdownV2' });
@@ -154,6 +213,9 @@ export default function showMeHandler(bot) {
       const queue = ownerQueues.get(confessionOwnerId) || [];
       queue.push(requestId);
       ownerQueues.set(confessionOwnerId, queue);
+
+      // Catat ke DB
+      await Database.recordActionSent(requesterId, 'showme');
 
       console.log(`📋 Queue owner ${confessionOwnerId}: ${queue.length} request(s)`);
 
