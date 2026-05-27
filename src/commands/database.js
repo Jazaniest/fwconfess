@@ -114,7 +114,7 @@ export class Database {
    */
   static async getBannedUsersPaginated(limit = 10, offset = 0) {
     const [rows] = await db.query(
-      `SELECT telegram_id, username, rank, gender, origin, registered_at
+      `SELECT telegram_id, username, \`rank\`, gender, origin, registered_at
       FROM \`users\`
       WHERE \`is_active\` = 0
       ORDER BY \`registered_at\` DESC
