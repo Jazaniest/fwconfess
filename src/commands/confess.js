@@ -335,7 +335,7 @@ function formatConfessionMessage(text, user) {
   const genderEmoji = getGenderEmoji(user.gender);
   const rankEmoji = getRankEmoji(user.rank);
   const safeGender = user.gender || 'Unknown';
-  const safeRank = user.rank || 'Member';
+  const safeRank = user.rank || 'member';
   const safeOrigin = user.origin || 'Unknown';
 
   return `💭 *ANONYMOUS CONFESSION*\n\n` +
@@ -358,9 +358,15 @@ function getGenderEmoji(gender) {
 
 function getRankEmoji(rank) {
   const rankEmojis = {
-    'admin': '👑', 'moderator': '🛡️',
-    'vip': '⭐', 'premium': '💎',
-    'member': '👤', 'newbie': '🌱'
+    'admin': '👑',
+    'member': '👤',
+    'bronze': '🥉',
+    'silver': '🥈',
+    'gold': '🥇',
+    'platinum': '💠',
+    'diamond': '💎',
+    'ascendant': '🪽',
+    'mythos': '🌌'
   };
   return rankEmojis[rank?.toLowerCase()] || '👤';
 }
