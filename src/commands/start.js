@@ -83,7 +83,7 @@ async function showMainMenu(ctx) {
  * @param {Telegraf} bot
  */
 export default function startCommand(bot) {
-  const adminSystem = adminPanel(bot);
+  const adminSystem = adminPanel(bot, process.env.TARGET_CHANNEL_ID);
 
   async function membershipMiddleware(ctx, next) {
     const userId = ctx.from.id;
