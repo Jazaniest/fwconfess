@@ -14,10 +14,10 @@ async function checkMembership(ctx, userId) {
 
   try {
     const channelMember = await ctx.telegram.getChatMember(channelId, userId);
-    const isChannelMember = ['member', 'administrator', 'creator'].includes(channelMember.status);
+    const isChannelMember = ['member', 'administrator', 'creator', 'restricted'].includes(channelMember.status);
 
     const groupMember = await ctx.telegram.getChatMember(groupId, userId);
-    const isGroupMember = ['member', 'administrator', 'creator'].includes(groupMember.status);
+    const isGroupMember = ['member', 'administrator', 'creator', 'restricted'].includes(groupMember.status);
 
     return { isChannelMember, isGroupMember, channelId, groupId };
   } catch (error) {
@@ -148,16 +148,22 @@ export default function startCommand(bot) {
     const membershipStatus = await checkMembership(ctx, userId);
 
     if (!membershipStatus.isChannelMember || !membershipStatus.isGroupMember) {
-      await ctx.editMessageText(
-        "❌ Anda masih belum bergabung di semua channel/grup yang direkomendasikan. Silakan bergabung terlebih dahulu.",
-        Markup.inlineKeyboard([
-          [Markup.button.callback('🔄 Cek Lagi', 'check_membership')]
-        ])
-      );
+      // Cek dulu apakah pesan sudah sama — kalau sama, skip edit
+      const currentText = ctx.callbackQuery?.message?.text || '';
+      const newText = '❌ Anda masih belum bergabung di semua channel/grup yang direkomendasikan. Silakan bergabung terlebih dahulu.';
+
+      if (currentText !== newText) {
+        await ctx.editMessageText(
+          newText,
+          Markup.inlineKeyboard([
+            [Markup.button.callback('🔄 Cek Lagi', 'check_membership')]
+          ])
+        ).catch(() => {});
+      }
       return;
     }
 
-    await ctx.editMessageText("✅ Keanggotaan berhasil diverifikasi! Selamat datang!");
+    await ctx.editMessageText('✅ Keanggotaan berhasil diverifikasi! Selamat datang!').catch(() => {});
     setTimeout(async () => {
       await showMainMenu(ctx);
     }, 1500);
