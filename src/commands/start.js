@@ -298,7 +298,7 @@ export default function startCommand(bot) {
       `• Dilarang share informasi pribadi\n` +
       `• Jangan membuat confession yang melanggar hukum\n\n` +
       `📞 *Kontak:*\n` +
-      `Admin: @SanzJzx\n` +
+      `Admin: @jzxty\n` +
       `Channel: @fwb_confess\n` +
       `Grup: @fwb_confesschat`;
 
@@ -314,7 +314,7 @@ export default function startCommand(bot) {
             { text: '💬 Grup', url: 'https://t.me/fwb_confesschat' }
           ],
           [
-            { text: '📞 Kontak Admin', url: 'https://t.me/SanzJzx' },
+            { text: '📞 Kontak Admin', url: 'https://t.me/jzxty' },
             { text: '📋 FAQ', callback_data: 'show_faq' }
           ],
           [{ text: backText, callback_data: backButton }]
@@ -338,7 +338,7 @@ export default function startCommand(bot) {
       `*Q: Data saya aman tidak?*\n` +
       `A: Ya, semua confession bersifat anonymous\n\n` +
       `*Q: Bagaimana cara melaporkan menfess yang tidak pantas?*\n` +
-      `A: Hubungi admin melalui @SanzJzx`;
+      `A: Hubungi admin melalui @jzxty`;
 
     const isUserAdmin = adminSystem.isAdmin(ctx.from.id);
     const backButton = isUserAdmin ? 'back_to_admin' : 'btn_help';
@@ -445,12 +445,12 @@ export default function startCommand(bot) {
     const rank = ctx.match[1];
 
     await ctx.reply(
-      `⏳ *Upgrade ke rank ${rank}*\n\nFitur pembayaran sedang dalam pengembangan.\nHubungi admin untuk upgrade manual: @SanzJzx`,
+      `⏳ *Upgrade ke rank ${rank}*\n\nFitur pembayaran sedang dalam pengembangan.\nHubungi admin untuk upgrade manual: @jzxty`,
       {
         parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [
-            [Markup.button.url('📞 Hubungi Admin', 'https://t.me/SanzJzx')],
+            [Markup.button.url('📞 Hubungi Admin', 'https://t.me/jzxty')],
             [Markup.button.callback('🔙 Kembali', 'btn_upgrade_rank')]
           ]
         }
