@@ -2,6 +2,7 @@ import { Markup } from 'telegraf';
 import { Database } from './database.js';
 import commentHandler from './comment.js';
 import showMeHandler from './showme.js';
+import reportHandler from './report.js';
 
 /**
  * Handler untuk logika menfess
@@ -51,6 +52,7 @@ export default function confessCommand(bot, targetChannelId) {
 
   const commentSystem = commentHandler(bot, process.env.DISCUSSION_GROUP_ID);
   const showMeSystem = showMeHandler(bot);
+  const reportSystem = reportHandler(bot, targetChannelId);
 
   console.log('🚀 Confess command initialized with channel:', targetChannelId);
   console.log('💬 Discussion group ID:', process.env.DISCUSSION_GROUP_ID);
@@ -215,16 +217,20 @@ export default function confessCommand(bot, targetChannelId) {
       console.log('✅ Message sent successfully to channel, message_id:', result.message_id);
 
       try {
-        inlineKeyboard.push(showMeSystem.createShowMeButton(result.message_id));
+        // Baris baru: Show Me + Report dalam satu baris
+        inlineKeyboard.push([
+          showMeSystem.createShowMeButton(result.message_id)[0], // ambil object button-nya
+          reportSystem.createReportButton(result.message_id)
+        ]);
         await ctx.telegram.editMessageReplyMarkup(
           targetChannelId,
           result.message_id,
           null,
           { inline_keyboard: inlineKeyboard }
         );
-        console.log('✅ Show Me button added to message');
+        console.log('✅ Show Me + Report button added to message');
       } catch (editErr) {
-        console.error('⚠️ Gagal menambahkan tombol Show Me (confession tetap terkirim):', editErr.message);
+        console.error('⚠️ Gagal menambahkan tombol (confession tetap terkirim):', editErr.message);
       }
 
       // Catat ke database SETELAH berhasil kirim
@@ -318,7 +324,8 @@ export default function confessCommand(bot, targetChannelId) {
       return false;
     },
     commentSystem,
-    showMeSystem
+    showMeSystem,
+    reportSystem
   };
 }
 
