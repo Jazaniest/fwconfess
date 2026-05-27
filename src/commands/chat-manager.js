@@ -11,6 +11,13 @@ export class ChatManager {
   }
 
   /**
+   * Setup message handler for anonymous chat
+   */
+  setupMessageHandler() {
+    console.log('Setting up message handler for anonymous chat');
+  }
+
+  /**
    * Send anonymous message between users
    */
   async sendAnonymousMessage(ctx, userId, text) {
