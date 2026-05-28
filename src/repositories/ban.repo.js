@@ -21,12 +21,12 @@ export async function getActiveBan(telegramId) {
   );
 
   // Sync is_active di tabel users
-  if (rows.length === 0) {
-    await db.query(
-      'UPDATE `users` SET `is_active` = 1 WHERE `telegram_id` = ? AND `is_active` = 0',
-      [telegramId]
-    );
-  }
+  // if (rows.length === 0) {
+  //   await db.query(
+  //     'UPDATE `users` SET `is_active` = 1 WHERE `telegram_id` = ? AND `is_active` = 0',
+  //     [telegramId]
+  //   );
+  // }
 
   return rows[0] || null;
 }
@@ -64,16 +64,6 @@ export async function createBan(telegramId, banType, reason, expiresAt, bannedBy
     [result.insertId]
   );
   return rows[0];
-}
-
-/**
- * Alias — beberapa caller masih memakai nama lama
- */
-export async function banUser(telegramId) {
-  await db.query(
-    'UPDATE `users` SET `is_active` = 0 WHERE `telegram_id` = ?',
-    [telegramId]
-  );
 }
 
 /**

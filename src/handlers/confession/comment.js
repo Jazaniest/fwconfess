@@ -1,3 +1,5 @@
+import { createThreadUrl } from './comment.js';
+
 /**
  * Comment Handler — comment via Telegram discussion group.
  *
@@ -36,7 +38,7 @@ export default function commentHandler(bot, discussionGroupId) {
       console.log('✅ Message sent to discussion group, message_id:', groupMessage.message_id);
 
       const groupId    = discussionGroupId.toString().replace('-100', '');
-      const commentUrl = `https://t.me/c/${groupId}/${groupMessage.message_id}/${groupMessage.message_id}`;
+      const commentUrl = createThreadUrl(discussionGroupId, groupMessage.message_id);
 
       console.log('🔗 Comment URL generated:', commentUrl);
 

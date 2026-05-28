@@ -106,7 +106,7 @@ export function setupConfessHandlers(bot, targetChannelId, commentSystem, showMe
         );
       }
 
-      pending.set(userId, { timestamp: now, user });
+      pending.set(userId, { timestamp: now, user, rlCfg });
       console.log('📝 User added to pending list:', userId);
 
       const instructionText = commentSystem.isCommentSystemEnabled()
@@ -175,7 +175,8 @@ export function setupConfessHandlers(bot, targetChannelId, commentSystem, showMe
 
       // Double-check rate limit
       const now    = Date.now();
-      const rlCfg  = await getRateLimitConfig(userId);
+      const { user, rlCfg } = pending.get(userId);
+      pending.delete(userId);
       const recent = await countRecentConfessions(userId, rlCfg.windowMs);
 
       if (recent >= rlCfg.maxCount) {
@@ -192,7 +193,7 @@ export function setupConfessHandlers(bot, targetChannelId, commentSystem, showMe
       }
 
       if (!text.includes('#fwconfess')) {
-        pending.set(userId, { timestamp: now, user });
+        pending.set(userId, { timestamp: now, user, rlCfg });
         return ctx.reply(
           '❌ Tag *#fwconfess* tidak ditemukan.\n\n' +
           'Tambahkan tag tersebut agar confession dapat dipublish.\n\n' +

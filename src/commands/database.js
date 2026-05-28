@@ -36,7 +36,6 @@ export class Database {
   static getTotalUserConfessions(id)              { return userRepo.getTotalUserConfessions(id); }
 
   // Legacy name used in server.js admin panel
-  static banUser(id)                              { return banRepo.banUser(id); }
   static unbanUser(id)                            { return banRepo.unbanUser(id); }
 
   // ─── Confession ──────────────────────────────────────────────────────────

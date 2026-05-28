@@ -3,11 +3,15 @@ import { setupAdminStats }       from '../handlers/admin/admin-stats.js';
 import { setupAdminUsers }       from '../handlers/admin/admin-users.js';
 import { setupAdminReports }     from '../handlers/admin/admin-reports.js';
 import { setupAdminBan,
-         showBanConfirmation,
-         showTempBanDurationMenu } from '../handlers/admin/admin-ban.js';
+          showBanConfirmation,
+          showTempBanDurationMenu } from '../handlers/admin/admin-ban.js';
 import { setupAdminSettings }   from '../handlers/admin/admin-settings.js';
 import { setupAdminBroadcast }  from '../handlers/admin/admin-broadcast.js';
 import { isAdminUser }           from '../middleware/admin-auth.js';
+import { getActiveBan }            from '../repositories/ban.repo.js';
+import { setConfig }                from '../repositories/config.repo.js';
+import { searchUsers }              from '../repositories/user.repo.js';
+import { getAllRankLimits, updateRankLimit } from '../repositories/confession.repo.js';
 
 /**
  * Admin command entry-point.
