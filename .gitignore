@@ -2,3 +2,5 @@ node_modules
 .qodo
 package-lock.json
 .env
+file.txt
+structure.txt
