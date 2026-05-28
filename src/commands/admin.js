@@ -8,10 +8,6 @@ import { setupAdminBan,
 import { setupAdminSettings }   from '../handlers/admin/admin-settings.js';
 import { setupAdminBroadcast }  from '../handlers/admin/admin-broadcast.js';
 import { isAdminUser }           from '../middleware/admin-auth.js';
-import { getActiveBan }          from '../repositories/ban.repo.js';
-import { setConfig }             from '../repositories/config.repo.js';
-import { searchUsers }           from '../repositories/user.repo.js';
-import { getAllRankLimits, updateRankLimit } from '../repositories/confession.repo.js';
 
 /**
  * Admin command entry-point.
@@ -214,6 +210,7 @@ export default function adminPanel(bot, targetChannelId) {
         }
         adminInputState.delete(userId);
 
+        const { getActiveBan } = await import('../repositories/ban.repo.js');
         const ban = await getActiveBan(targetId);
 
         if (!ban) {
@@ -239,6 +236,7 @@ export default function adminPanel(bot, targetChannelId) {
       // ── Settings flow ─────────────────────────────────────────────────────
 
       case 'set_config': {
+        const { setConfig } = await import('../repositories/config.repo.js');
         await setConfig(state.configKey, text);
         adminInputState.delete(userId);
         await ctx.reply(
@@ -255,6 +253,7 @@ export default function adminPanel(bot, targetChannelId) {
 
       case 'search_user': {
         adminInputState.delete(userId);
+        const { searchUsers } = await import('../repositories/user.repo.js');
         const results = await searchUsers(text, 10);
 
         if (results.length === 0) {
@@ -291,6 +290,7 @@ export default function adminPanel(bot, targetChannelId) {
           });
           return true;
         }
+        const { setConfig } = await import('../repositories/config.repo.js');
         await setConfig('confession_max_per_window', String(val));
         adminInputState.delete(userId);
         await ctx.reply(`✅ Maksimal menfess diubah ke *${val}x*.`, {
@@ -308,6 +308,7 @@ export default function adminPanel(bot, targetChannelId) {
           });
           return true;
         }
+        const { setConfig } = await import('../repositories/config.repo.js');
         await setConfig('confession_window_hours', String(val));
         adminInputState.delete(userId);
         await ctx.reply(`✅ Jangka waktu window diubah ke *${val} jam*.`, {
@@ -318,6 +319,7 @@ export default function adminPanel(bot, targetChannelId) {
       }
 
       case 'set_msg_hit': {
+        const { setConfig } = await import('../repositories/config.repo.js');
         await setConfig('ratelimit_msg_hit', text);
         adminInputState.delete(userId);
         await ctx.reply(`✅ Pesan rate limit berhasil diperbarui.`, {
@@ -327,6 +329,7 @@ export default function adminPanel(bot, targetChannelId) {
       }
 
       case 'set_msg_success': {
+        const { setConfig } = await import('../repositories/config.repo.js');
         await setConfig('ratelimit_msg_success', text);
         adminInputState.delete(userId);
         await ctx.reply(`✅ Pesan sukses menfess berhasil diperbarui.`, {
@@ -343,6 +346,7 @@ export default function adminPanel(bot, targetChannelId) {
           });
           return true;
         }
+        const { getAllRankLimits, updateRankLimit } = await import('../repositories/confession.repo.js');
         const ranks    = await getAllRankLimits();
         const rankData = ranks.find(r => r.rank === state.rank);
         await updateRankLimit(state.rank, state.actionType, val, rankData?.is_active ?? 1);
@@ -363,6 +367,7 @@ export default function adminPanel(bot, targetChannelId) {
           });
           return true;
         }
+        const { getAllRankLimits } = await import('../repositories/confession.repo.js');
         const ranks = await getAllRankLimits();
         const activeRanks = ranks.filter(r => r.is_active && r.rank !== 'member');
 
