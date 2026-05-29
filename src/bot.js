@@ -7,6 +7,7 @@ import profileCommand from './commands/profile.js';
 import hitMeCommand from './commands/hitme.js';
 import dagetCommand from './commands/daget.js';
 import { Database } from './commands/database.js';
+import dagetCommand from './commands/daget.js';
 
 dotenv.config();
 
@@ -119,7 +120,7 @@ export async function startBot() {
       if (ctx.chat.type !== 'private') return next();
       return hitMe.chatManager.sendAnonymousMessage(ctx, ctx.from.id, ctx.message.text);
     }
-    // 4. Default
+    // 5. Default
     return next();
   });
 
