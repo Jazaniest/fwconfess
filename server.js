@@ -3,8 +3,8 @@ import expressLayouts from 'express-ejs-layouts';
 import session from 'express-session';
 import dotenv from 'dotenv';
 import path from 'path';
-import { startBot } from './old_src/src/bot.js';
-import { db } from './old_src/src/services/db.js';
+import { startBot } from './old-src/src/bot.js';
+import { db } from './old-src/src/services/db.js';
 
 dotenv.config();
 
