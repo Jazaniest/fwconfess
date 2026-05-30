@@ -10,7 +10,7 @@ export class Database {
    */
   static async getUserById(telegramId) {
     const [rows] = await db.query(
-      'SELECT `telegram_id`, `rank`, `gender`, `origin` FROM `users` WHERE `telegram_id` = ?',
+      'SELECT `telegram_id`, `rank`, `gender`, `origin`, `username`, `hide_username`, `hide_gender`, `hide_origin` FROM `users` WHERE `telegram_id` = ?',
       [telegramId]
     );
     return rows[0] || null;
@@ -694,9 +694,9 @@ export class Database {
    */
   static async getActionLimitByRank(rank, actionType) {
     const colMap = {
-      confess : 'max_count',
-      hitme   : 'hitme_max_count',
-      showme  : 'showme_max_count',
+      confess: 'max_count',
+      hitme: 'hitme_max_count',
+      showme: 'showme_max_count',
     };
     const col = colMap[actionType] || 'max_count';
     const [rows] = await db.query(
@@ -722,9 +722,9 @@ export class Database {
   // Update limit sebuah rank untuk action tertentu
   static async updateRankLimit(rank, actionType, maxCount, isActive) {
     const colMap = {
-      confess : 'max_count',
-      hitme   : 'hitme_max_count',
-      showme  : 'showme_max_count',
+      confess: 'max_count',
+      hitme: 'hitme_max_count',
+      showme: 'showme_max_count',
     };
     const col = colMap[actionType] || 'max_count';
     await db.query(
@@ -936,10 +936,68 @@ export class Database {
     const [[{ total }]] = await db.query('SELECT COUNT(*) AS total FROM `donations`');
     return total;
   }
+
+  // ─── Privacy & profile edit queries ──────────────────────────────────────────
+
+  /**
+   * Ambil privacy settings user
+   */
+  static async getPrivacySettings(telegramId) {
+    const [rows] = await db.query(
+      'SELECT `hide_username`, `hide_gender`, `hide_origin` FROM `users` WHERE `telegram_id` = ?',
+      [telegramId]
+    );
+    return rows[0] || { hide_username: 0, hide_gender: 0, hide_origin: 0 };
+  }
+
+  /**
+   * Update satu kolom privacy (toggle)
+   * @param {number} telegramId
+   * @param {'hide_username'|'hide_gender'|'hide_origin'} field
+   * @param {0|1} value
+   */
+  static async setPrivacyField(telegramId, field, value) {
+    const allowed = ['hide_username', 'hide_gender', 'hide_origin'];
+    if (!allowed.includes(field)) throw new Error('Invalid privacy field');
+    await db.query(
+      `UPDATE \`users\` SET \`${field}\` = ? WHERE \`telegram_id\` = ?`,
+      [value, telegramId]
+    );
+  }
+
+  /**
+   * Update origin user
+   */
+  static async updateOrigin(telegramId, origin) {
+    await db.query(
+      'UPDATE `users` SET `origin` = ? WHERE `telegram_id` = ?',
+      [origin, telegramId]
+    );
+  }
+
+  /**
+   * Update gender user
+   */
+  static async updateGender(telegramId, gender) {
+    await db.query(
+      'UPDATE `users` SET `gender` = ? WHERE `telegram_id` = ?',
+      [gender, telegramId]
+    );
+  }
+
+  /**
+   * Update username user (sync dari Telegram)
+   */
+  static async updateUsername(telegramId, username) {
+    await db.query(
+      'UPDATE `users` SET `username` = ? WHERE `telegram_id` = ?',
+      [username || null, telegramId]
+    );
+  }
 }
 
 // ─── Dagetan ─────────────────────────────────────────────────────────────────
- 
+
 /**
  * Buat daget baru.
  * @param {string}   title
@@ -958,7 +1016,7 @@ export async function dbCreateDaget(title, winnerCount, ranks, drawAt, createdBy
   );
   return result.insertId;
 }
- 
+
 /**
  * Ambil satu daget berdasarkan ID.
  * @param {number} id
@@ -971,7 +1029,7 @@ export async function dbGetDagetById(id) {
   );
   return rows[0] || null;
 }
- 
+
 /**
  * Ambil semua daget yang masih aktif (status = 'waiting').
  * @returns {Promise<Object[]>}
@@ -982,7 +1040,7 @@ export async function dbGetActiveDagetan() {
   );
   return rows;
 }
- 
+
 /**
  * Tandai daget sebagai sudah diundi.
  * @param {number} id
@@ -993,7 +1051,7 @@ export async function dbMarkDagetDrawn(id) {
     [id]
   );
 }
- 
+
 /**
  * Tandai daget sebagai dibatalkan.
  * @param {number} id
@@ -1004,9 +1062,9 @@ export async function dbMarkDagetCancelled(id) {
     [id]
   );
 }
- 
+
 // ─── Pemenang ─────────────────────────────────────────────────────────────────
- 
+
 /**
  * Simpan daftar pemenang ke tabel daget_winners.
  * @param {number}   dagetId
@@ -1020,7 +1078,7 @@ export async function dbSaveDagetWinners(dagetId, winners) {
     [values]
   );
 }
- 
+
 /**
  * Ambil semua pemenang dari satu daget.
  * @param {number} dagetId
@@ -1033,9 +1091,9 @@ export async function dbGetDagetWinners(dagetId) {
   );
   return rows;
 }
- 
+
 // ─── Pool peserta ─────────────────────────────────────────────────────────────
- 
+
 /**
  * Ambil semua user aktif yang ranknya masuk daftar eligible.
  * @param {string[]} ranks
