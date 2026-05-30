@@ -3,8 +3,10 @@ import expressLayouts from 'express-ejs-layouts';
 import session from 'express-session';
 import dotenv from 'dotenv';
 import path from 'path';
-import { startBot } from './old-src/src/bot.js';
-import { db } from './old-src/src/services/db.js';
+import { startBot } from './src/bot.js';
+import { db } from './src/services/db.js';
+import { createDonationRouter } from './src/routes/donation.js';
+import donasiCommand from './src/commands/donasi.js';
 
 dotenv.config();
 
@@ -17,6 +19,7 @@ app.set('view engine', 'ejs');
 app.set('views', path.resolve('./views'));
 
 app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
 app.use(session({ secret: process.env.SESSION_SECRET || 'keyboard cat', resave: false, saveUninitialized: true }));
 
 // Keep-alive endpoint
@@ -150,11 +153,22 @@ app.post('/admin/blacklist', async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🌐 Admin panel & keep-alive server running on port ${PORT}`));
+async function main() {
+  const bot = await startBot();
 
-// Jalankan bot setelah Express siap
-startBot().catch(err => {
-  console.error('Gagal memulai bot:', err);
+  // Mount webhook donasi — harus sebelum app.listen
+  const webhookSecret = process.env.TRAKTEER_WEBHOOK_SECRET || '';
+  app.use('/donation', createDonationRouter(bot, process.env.TARGET_CHANNEL_ID, webhookSecret));
+  donasiCommand(bot, process.env.TRAKTEER_URL || 'https://trakteer.id/jzxyzx/tip');
+
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`🌐 Server running on port ${PORT}`);
+    console.log(`🔗 Webhook donasi aktif di /donation/donation`);
+  });
+}
+
+main().catch(err => {
+  console.error('Gagal memulai server:', err);
   process.exit(1);
 });

@@ -7,8 +7,6 @@ import profileCommand from './commands/profile.js';
 import hitMeCommand from './commands/hitme.js';
 import dagetCommand from './commands/daget.js';
 import { Database } from './commands/database.js';
-import dagetCommand from './commands/daget.js';
-import dagetCommand from './commands/daget.js';
 
 dotenv.config();
 
@@ -45,10 +43,10 @@ export async function startBot() {
     if (ADMIN_ID && userId.toString() === ADMIN_ID.toString()) return next();
 
     // Hanya berlaku untuk pesan di private chat dan discussion group
-    const chatId   = ctx.chat?.id?.toString();
+    const chatId = ctx.chat?.id?.toString();
     const chatType = ctx.chat?.type;
 
-    const isPrivate         = chatType === 'private';
+    const isPrivate = chatType === 'private';
     const isDiscussionGroup = DISCUSSION_GROUP_ID && chatId === DISCUSSION_GROUP_ID.toString();
 
     if (!isPrivate && !isDiscussionGroup) return next();
@@ -73,12 +71,12 @@ export async function startBot() {
 
       // Untuk callback query, jawab dulu agar tombol tidak loading terus
       if (ctx.callbackQuery) {
-        await ctx.answerCbQuery('🚫 Kamu di-ban dari bot ini.').catch(() => {});
+        await ctx.answerCbQuery('🚫 Kamu di-ban dari bot ini.').catch(() => { });
       }
 
       // Kirim pesan ban hanya jika private (jangan spam di grup)
       if (isPrivate) {
-        await ctx.reply(banMsg, { parse_mode: 'Markdown' }).catch(() => {});
+        await ctx.reply(banMsg, { parse_mode: 'Markdown' }).catch(() => { });
       }
 
       // Jika di discussion group, hapus pesannya diam-diam
@@ -93,7 +91,7 @@ export async function startBot() {
     }
   });
 
-  
+
   // Daftar semua command
   startCommand(bot);
   const register = registerCommand(bot);
@@ -102,7 +100,7 @@ export async function startBot() {
   const hitMe = hitMeCommand(bot);
   await hitMe.chatManager.syncSessionsWithDatabase();
   const daget = dagetCommand(bot, process.env.TARGET_CHANNEL_ID);
-  
+
   bot.on('text', async (ctx, next) => {
     // 1. Proses registrasi
     if (ctx.session?.registration?.gender && !ctx.session?.registration?.done) {
@@ -139,9 +137,9 @@ export async function startBot() {
       command: 'profile',
       description: 'Lihat profil'
     },
-    { 
+    {
       command: 'daget',
-      description: 'Lihat & buat daget' 
+      description: 'Lihat & buat daget'
     }
   ]);
 
@@ -152,10 +150,18 @@ export async function startBot() {
   });
 
   // Jalankan polling
-  await bot.launch();
+  bot.launch().then(() => {
+    console.log('✅ bot.launch() resolved (tidak normal, tapi OK)');
+  }).catch(err => {
+    console.error('❌ bot.launch() error:', err);
+    process.exit(1);
+  });
+
   console.log('🤖 Bot menfess sudah berjalan (polling)');
 
   // Graceful shutdown
   process.once('SIGINT', () => bot.stop('SIGINT'));
   process.once('SIGTERM', () => bot.stop('SIGTERM'));
+
+  return bot;
 }
