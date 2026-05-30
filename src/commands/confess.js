@@ -18,7 +18,7 @@ export default function confessCommand(bot, targetChannelId) {
   }
 
   const pending = new Map();
-  
+
   // Ambil config rate limit dari database
   async function getRateLimitConfig(userId) {
     const cfg = await Database.getConfigs([
@@ -34,11 +34,11 @@ export default function confessCommand(bot, targetChannelId) {
     const windowHours = parseFloat(cfg['confession_window_hours'] || '8');
     return {
       maxCount,
-      windowMs   : windowHours * 60 * 60 * 1000,
+      windowMs: windowHours * 60 * 60 * 1000,
       windowHours,
       effectiveRank,
-      msgHit     : cfg['ratelimit_msg_hit']    || '⏰ Kamu sudah menfess {count}x dalam {hours} jam terakhir.\n\nCoba lagi setelah: *{next_time}*',
-      msgSuccess : cfg['ratelimit_msg_success'] || '🎉 *Menfess berhasil dipublish!*\n\n⏰ Kamu bisa menfess lagi dalam {hours} jam',
+      msgHit: cfg['ratelimit_msg_hit'] || '⏰ Kamu sudah menfess {count}x dalam {hours} jam terakhir.\n\nCoba lagi setelah: *{next_time}*',
+      msgSuccess: cfg['ratelimit_msg_success'] || '🎉 *Menfess berhasil dipublish!*\n\n⏰ Kamu bisa menfess lagi dalam {hours} jam',
     };
   }
 
@@ -88,8 +88,8 @@ export default function confessCommand(bot, targetChannelId) {
         console.log('🚫 Rate limit hit for user:', userId);
         return ctx.reply(
           renderMsg(rlCfg.msgHit, {
-            count    : rlCfg.maxCount,
-            hours    : rlCfg.windowHours,
+            count: rlCfg.maxCount,
+            hours: rlCfg.windowHours,
             next_time: nextAllowed.toLocaleString('id-ID'),
           }),
           { parse_mode: 'Markdown' }
@@ -101,20 +101,20 @@ export default function confessCommand(bot, targetChannelId) {
 
       const instructionText = commentSystem.isCommentSystemEnabled()
         ? '📝 *Kirim Menfess*\n\n' +
-          'Silakan ketik confession kamu. Pastikan menyertakan tag *#fwconfess*\n\n' +
-          '⚠️ *Perhatian:*\n' +
-          '• Menfess akan ditampilkan dengan gender dan rank kamu\n' +
-          '• User lain bisa klik "Hit Me" untuk chat anonymous\n' +
-          '• User bisa memberikan komentar di grup diskusi\n' +
-          '• Jaga sopan santun dalam menfess\n\n' +
-          '💡 *Tips:* Ketik `/cancel` untuk membatalkan'
+        'Silakan ketik confession kamu. Pastikan menyertakan tag *#fwconfess*\n\n' +
+        '⚠️ *Perhatian:*\n' +
+        '• Menfess akan ditampilkan dengan gender dan rank kamu\n' +
+        '• User lain bisa klik "Hit Me" untuk chat anonymous\n' +
+        '• User bisa memberikan komentar di grup diskusi\n' +
+        '• Jaga sopan santun dalam menfess\n\n' +
+        '💡 *Tips:* Ketik `/cancel` untuk membatalkan'
         : '📝 *Kirim Menfess*\n\n' +
-          'Silakan ketik confession kamu. Pastikan menyertakan tag *#fwconfess*\n\n' +
-          '⚠️ *Perhatian:*\n' +
-          '• Menfess akan ditampilkan dengan gender dan rank kamu\n' +
-          '• User lain bisa klik "Hit Me" untuk chat anonymous\n' +
-          '• Jaga sopan santun dalam menfess\n\n' +
-          '💡 *Tips:* Ketik `/cancel` untuk membatalkan';
+        'Silakan ketik confession kamu. Pastikan menyertakan tag *#fwconfess*\n\n' +
+        '⚠️ *Perhatian:*\n' +
+        '• Menfess akan ditampilkan dengan gender dan rank kamu\n' +
+        '• User lain bisa klik "Hit Me" untuk chat anonymous\n' +
+        '• Jaga sopan santun dalam menfess\n\n' +
+        '💡 *Tips:* Ketik `/cancel` untuk membatalkan';
 
       await ctx.reply(instructionText, { parse_mode: 'Markdown' });
 
@@ -172,8 +172,8 @@ export default function confessCommand(bot, targetChannelId) {
         const nextAllowed = new Date(oldestInWindow.getTime() + rlCfg.windowMs);
         return ctx.reply(
           renderMsg(rlCfg.msgHit, {
-            count    : rlCfg.maxCount,
-            hours    : rlCfg.windowHours,
+            count: rlCfg.maxCount,
+            hours: rlCfg.windowHours,
             next_time: nextAllowed.toLocaleString('id-ID'),
           }),
           { parse_mode: 'Markdown' }
@@ -334,16 +334,28 @@ export default function confessCommand(bot, targetChannelId) {
 function formatConfessionMessage(text, user) {
   const genderEmoji = getGenderEmoji(user.gender);
   const rankEmoji = getRankEmoji(user.rank);
-  const safeGender = user.gender || 'Unknown';
+
+  const displayUsername = user.hide_username || !user.username
+    ? '*xxxxx*'
+    : `@${user.username}`;
+
+  const displayGender = user.hide_gender
+    ? '*xxxxx*'
+    : `*${user.gender || 'Unknown'}*`;
+
+  const displayOrigin = user.hide_origin
+    ? '*xxxxx*'
+    : `*${user.origin || 'Unknown'}*`;
+
   const safeRank = user.rank || 'member';
-  const safeOrigin = user.origin || 'Unknown';
 
   return `💭 *ANONYMOUS CONFESSION*\n\n` +
-          `${text}\n\n` +
-          `━━━━━━━━━━━━━━━━━━━\n` +
-         `${genderEmoji} Gender: *${safeGender}*\n` +
-         `${rankEmoji} Rank: *${safeRank}*\n` +
-         `📍 Origin: *${safeOrigin}*`;
+    `${text}\n\n` +
+    `━━━━━━━━━━━━━━━━━━━\n` +
+    `👤 By: ${displayUsername}\n` +
+    `${genderEmoji} Gender: ${displayGender}\n` +
+    `${rankEmoji} Rank: *${safeRank}*\n` +
+    `📍 Origin: ${displayOrigin}`;
 }
 
 function getGenderEmoji(gender) {
