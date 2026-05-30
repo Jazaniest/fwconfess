@@ -870,7 +870,72 @@ export class Database {
     return total;
   }
 
-  
+  // ─── Donation queries ────────────────────────────────────────────────────────
+
+  /**
+   * Simpan donasi baru. Return null jika transaction_id sudah ada (duplicate).
+   */
+  static async saveDonation({ transactionId, supporterName, supporterMessage, unit, quantity, price }) {
+    try {
+      const totalAmount = quantity * price;
+      const [result] = await db.query(
+        `INSERT INTO \`donations\`
+          (\`transaction_id\`, \`supporter_name\`, \`supporter_message\`, \`unit\`, \`quantity\`, \`price\`, \`total_amount\`)
+        VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [transactionId, supporterName || 'Anonim', supporterMessage || null, unit, quantity, price, totalAmount]
+      );
+      const [rows] = await db.query('SELECT * FROM `donations` WHERE `id` = ?', [result.insertId]);
+      return rows[0];
+    } catch (err) {
+      // Duplicate transaction_id → abaikan
+      if (err.code === 'ER_DUP_ENTRY') return null;
+      throw err;
+    }
+  }
+
+  /**
+   * Ambil total donasi keseluruhan
+   */
+  static async getTotalDonations() {
+    const [[{ total }]] = await db.query('SELECT COALESCE(SUM(`total_amount`), 0) AS total FROM `donations`');
+    return total;
+  }
+
+  /**
+   * Ambil top donator berdasarkan total amount
+   */
+  static async getTopDonators(limit = 5) {
+    const [rows] = await db.query(
+      `SELECT \`supporter_name\`,
+              SUM(\`total_amount\`) AS total,
+              COUNT(\`id\`)         AS donation_count
+      FROM \`donations\`
+      GROUP BY \`supporter_name\`
+      ORDER BY total DESC
+      LIMIT ?`,
+      [limit]
+    );
+    return rows;
+  }
+
+  /**
+   * Ambil riwayat donasi terbaru
+   */
+  static async getRecentDonations(limit = 5) {
+    const [rows] = await db.query(
+      `SELECT * FROM \`donations\` ORDER BY \`created_at\` DESC LIMIT ?`,
+      [limit]
+    );
+    return rows;
+  }
+
+  /**
+   * Hitung total donasi (jumlah transaksi)
+   */
+  static async getTotalDonationCount() {
+    const [[{ total }]] = await db.query('SELECT COUNT(*) AS total FROM `donations`');
+    return total;
+  }
 }
 
 // ─── Dagetan ─────────────────────────────────────────────────────────────────
