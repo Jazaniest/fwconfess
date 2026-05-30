@@ -6,6 +6,7 @@ import confessCommand from './commands/confess.js';
 import profileCommand from './commands/profile.js';
 import hitMeCommand from './commands/hitme.js';
 import dagetCommand from './commands/daget.js';
+import donasiCommand from './commands/donasi.js';
 import { Database } from './commands/database.js';
 
 dotenv.config();
@@ -100,7 +101,7 @@ export async function startBot() {
   const hitMe = hitMeCommand(bot);
   await hitMe.chatManager.syncSessionsWithDatabase();
   const daget = dagetCommand(bot, process.env.TARGET_CHANNEL_ID);
-
+  const donasi = donasiCommand(bot, process.env.TRAKTEER_URL);
   bot.on('text', async (ctx, next) => {
     // 1. Proses registrasi
     if (ctx.session?.registration?.gender && !ctx.session?.registration?.done) {
@@ -140,6 +141,10 @@ export async function startBot() {
     {
       command: 'daget',
       description: 'Lihat & buat daget'
+    },
+    {
+      command: 'donasi',
+      description: 'Support bot dengan donasi'
     }
   ]);
 

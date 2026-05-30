@@ -68,7 +68,10 @@ async function showMainMenu(ctx) {
       Markup.button.callback('👤 Lihat Profile', 'btn_profile'),
       Markup.button.callback('📜 Lihat Menfess', 'btn_view')
     ],
-    [Markup.button.callback('🎲 Daget', 'btn_daget')],  // ← tambah ini
+    [
+      Markup.button.callback('🎲 Daget', 'btn_daget'),
+      Markup.button.callback('💰 Donasi', 'btn_donasi')
+    ],
   ];
 
   if (rankEnabled === '1') {
@@ -159,12 +162,12 @@ export default function startCommand(bot) {
           Markup.inlineKeyboard([
             [Markup.button.callback('🔄 Cek Lagi', 'check_membership')]
           ])
-        ).catch(() => {});
+        ).catch(() => { });
       }
       return;
     }
 
-    await ctx.editMessageText('✅ Keanggotaan berhasil diverifikasi! Selamat datang!').catch(() => {});
+    await ctx.editMessageText('✅ Keanggotaan berhasil diverifikasi! Selamat datang!').catch(() => { });
     setTimeout(async () => {
       await showMainMenu(ctx);
     }, 1500);
@@ -234,18 +237,18 @@ export default function startCommand(bot) {
       const confessions = await Database.getConfessionsByUserId(telegramId, 5);
 
       let listText = '';
-      
+
       if (confessions.length === 0) {
         listText = `_Kamu belum pernah mengirim menfess atau data tidak ditemukan._\n\n`;
       } else {
         confessions.forEach((cf, index) => {
-          const shortText = cf.message_text.length > 60 
-            ? cf.message_text.substring(0, 60) + '...' 
+          const shortText = cf.message_text.length > 60
+            ? cf.message_text.substring(0, 60) + '...'
             : cf.message_text;
 
           listText += `${index + 1}. *ID:* #${cf.id}\n` +
-                      `📝 "${shortText}"\n` +
-                      `🔗 [Lihat di Channel](https://t.me/fwb_confess/${cf.channel_message_id})\n\n`;
+            `📝 "${shortText}"\n` +
+            `🔗 [Lihat di Channel](https://t.me/fwb_confess/${cf.channel_message_id})\n\n`;
         });
       }
 
