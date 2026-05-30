@@ -175,58 +175,66 @@ export default function startCommand(bot) {
 
   // === USER MENU HANDLERS ===
 
-  bot.action('btn_profile', membershipMiddleware, async (ctx) => {
-    await ctx.answerCbQuery('📋 Memuat profile...');
+  // bot.action('btn_profile', membershipMiddleware, async (ctx) => {
+  //   await ctx.answerCbQuery('📋 Memuat profile...');
 
-    try {
-      const userId = ctx.from.id;
+  //   try {
+  //     const userId = ctx.from.id;
 
-      // Ambil data user dari database
-      const userProfile = await Database.getUserFullProfile(userId);
-      const totalConfessions = await Database.getTotalUserConfessions(userId);
+  //     // Sync username dari Telegram ke DB
+  //     await Database.updateUsername(userId, ctx.from.username);
 
-      // Format tanggal bergabung
-      const joinDate = userProfile?.registered_at
-        ? new Date(userProfile.registered_at).toLocaleDateString('id-ID', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        })
-        : 'Tidak diketahui';
+  //     const userProfile = await Database.getUserFullProfile(userId);
+  //     const totalConfessions = await Database.getTotalUserConfessions(userId);
+  //     const privacy = await Database.getPrivacySettings(userId);
 
-      // Tentukan status member
-      const memberStatus = userProfile?.is_active === 1 ? '✅ Active' : '❌ Inactive';
+  //     const joinDate = userProfile?.registered_at
+  //       ? new Date(userProfile.registered_at).toLocaleDateString('id-ID', {
+  //         year: 'numeric', month: 'long', day: 'numeric'
+  //       })
+  //       : 'Tidak diketahui';
 
-      const profileText = `👤 *Profile Anda*\n\n` +
-        `🆔 User ID: \`${userId}\`\n` +
-        `👤 Nama: ${ctx.from.first_name || 'Tidak diketahui'}\n` +
-        `📅 Bergabung: ${joinDate}\n` +
-        `📝 Total Menfess: *${totalConfessions}*\n` +
-        `🎯 Status: ${memberStatus}\n` +
-        `📍 Origin: ${userProfile?.origin || 'Tidak diisi'}\n` +
-        `👥 Gender: ${userProfile?.gender || 'Tidak diisi'}\n` +
-        `🏆 Rank: ${userProfile?.rank || 'Member'}`;
+  //     const memberStatus = userProfile?.is_active === 1 ? '✅ Active' : '❌ Inactive';
 
-      await ctx.editMessageText(profileText, {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '🏠 Menu Utama', callback_data: 'back_to_main' }]
-          ]
-        }
-      });
+  //     const profileText =
+  //       `👤 *Profile Anda*\n\n` +
+  //       `🆔 User ID: \`${userId}\`\n` +
+  //       `👤 Username: ${ctx.from.username ? `@${ctx.from.username}` : '_Tidak ada_'}\n` +
+  //       `📅 Bergabung: ${joinDate}\n` +
+  //       `📝 Total Menfess: *${totalConfessions}*\n` +
+  //       `🎯 Status: ${memberStatus}\n` +
+  //       `📍 Origin: ${userProfile?.origin || 'Tidak diisi'}\n` +
+  //       `👥 Gender: ${userProfile?.gender || 'Tidak diisi'}\n` +
+  //       `🏆 Rank: ${userProfile?.rank || 'Member'}\n\n` +
+  //       `🔒 *Privacy:*\n` +
+  //       `• Username: ${privacy.hide_username ? '🙈 Tersembunyi' : '👁 Terlihat'}\n` +
+  //       `• Gender: ${privacy.hide_gender ? '🙈 Tersembunyi' : '👁 Terlihat'}\n` +
+  //       `• Origin: ${privacy.hide_origin ? '🙈 Tersembunyi' : '👁 Terlihat'}`;
 
-    } catch (error) {
-      console.error('Error showing profile:', error);
-      await ctx.editMessageText(
-        '❌ Error memuat profile. Silakan coba lagi.',
-        Markup.inlineKeyboard([
-          [{ text: '🔄 Coba Lagi', callback_data: 'btn_profile' }],
-          [{ text: '🏠 Menu Utama', callback_data: 'back_to_main' }]
-        ])
-      );
-    }
-  });
+  //     await ctx.editMessageText(profileText, {
+  //       parse_mode: 'Markdown',
+  //       reply_markup: {
+  //         inline_keyboard: [
+  //           [
+  //             { text: '✏️ Edit Profile', callback_data: 'edit_profile' },
+  //             { text: '🔒 Atur Privacy', callback_data: 'privacy_settings' }
+  //           ],
+  //           [{ text: '🏠 Menu Utama', callback_data: 'back_to_main' }]
+  //         ]
+  //       }
+  //     });
+
+  //   } catch (error) {
+  //     console.error('Error showing profile:', error);
+  //     await ctx.editMessageText(
+  //       '❌ Error memuat profile. Silakan coba lagi.',
+  //       Markup.inlineKeyboard([
+  //         [{ text: '🔄 Coba Lagi', callback_data: 'btn_profile' }],
+  //         [{ text: '🏠 Menu Utama', callback_data: 'back_to_main' }]
+  //       ])
+  //     );
+  //   }
+  // });
 
   bot.action('btn_view', membershipMiddleware, async (ctx) => {
     await ctx.answerCbQuery();
@@ -293,7 +301,6 @@ export default function startCommand(bot) {
       `• Anonymous confession dengan gender & rank\n` +
       `• Hit Me untuk chat anonymous dengan pembuat menfess\n` +
       `• Sistem komentar di grup diskusi\n` +
-      `• Rate limit 8 jam per confession\n` +
       `• Profile dan statistik personal\n\n` +
       `🔹 *Aturan Penting:*\n` +
       `• Gunakan bahasa yang sopan dan tidak menyinggung\n` +
@@ -362,60 +369,187 @@ export default function startCommand(bot) {
     await showMainMenu(ctx);
   });
 
-  bot.action('edit_profile', membershipMiddleware, async (ctx) => {
+  // bot.action('edit_profile', membershipMiddleware, async (ctx) => {
+  //   await ctx.answerCbQuery();
+
+  //   await ctx.reply(`✏️ *Edit Profile*\n\nPilih data yang ingin diubah:`, {
+  //     parse_mode: 'Markdown',
+  //     reply_markup: {
+  //       inline_keyboard: [
+  //         [
+  //           { text: '👥 Ubah Gender', callback_data: 'edit_gender' },
+  //           { text: '📍 Ubah Origin', callback_data: 'edit_origin' }
+  //         ],
+  //         [{ text: '🔙 Kembali ke Profile', callback_data: 'btn_profile' }]
+  //       ]
+  //     }
+  //   });
+  // });
+
+  // ─── Edit gender ──────────────────────────────────────────────────────────────
+  bot.action('edit_gender', membershipMiddleware, async (ctx) => {
     await ctx.answerCbQuery();
 
-    await ctx.reply(`📝 *Edit Profile*\n\nPilih data yang ingin diubah:`, {
+    await ctx.reply('👥 *Ubah Gender*\n\nPilih gender kamu:', {
       parse_mode: 'Markdown',
       reply_markup: {
         inline_keyboard: [
           [
-            { text: '👤 Gender', callback_data: 'edit_gender' },
-            { text: '📍 Origin', callback_data: 'edit_origin' }
+            { text: 'Laki-laki', callback_data: 'set_gender_male' },
+            { text: 'Perempuan', callback_data: 'set_gender_female' }
           ],
-          [{ text: '🏠 Menu Utama', callback_data: 'back_to_main' }]
+          [{ text: 'Lainnya', callback_data: 'set_gender_other' }],
+          [{ text: '🔙 Kembali', callback_data: 'edit_profile' }]
         ]
       }
     });
   });
 
-  bot.action('my_stats', membershipMiddleware, async (ctx) => {
+  bot.action(/^set_gender_(.+)$/, membershipMiddleware, async (ctx) => {
     await ctx.answerCbQuery();
+    const gender = ctx.match[1]; // male / female / other
 
-    const userId = ctx.from.id;
+    await Database.updateGender(ctx.from.id, gender);
 
-    const statsText = `📊 *Statistik Anda*\n\n` +
-      `👤 User ID: \`${userId}\`\n` +
-      `🏆 Rank: Member\n\n` +
-      `_Data sedang dimuat dari database..._`;
-
-    await ctx.reply(statsText, {
-      parse_mode: 'Markdown',
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🏠 Menu Utama', callback_data: 'back_to_main' }]
-        ]
-      }
-    });
-  });
-
-  bot.action('my_menfess', membershipMiddleware, async (ctx) => {
-    await ctx.answerCbQuery();
-
-    const menfessText = `📝 *Menfess Saya*\n\n_Sedang memuat data dari database..._`;
-
-    await ctx.reply(menfessText, {
-      parse_mode: 'Markdown',
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: '🔄 Refresh', callback_data: 'my_menfess' },
-            { text: '🏠 Menu Utama', callback_data: 'back_to_main' }
+    await ctx.editMessageText(
+      `✅ Gender berhasil diubah ke *${gender}*.`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔙 Kembali ke Profile', callback_data: 'btn_profile' }]
           ]
+        }
+      }
+    );
+  });
+
+  // ─── Edit origin ──────────────────────────────────────────────────────────────
+  // Gunakan session/Map untuk menandai user sedang menunggu input origin
+  const pendingOriginEdit = new Map();
+
+  bot.action('edit_origin', membershipMiddleware, async (ctx) => {
+    await ctx.answerCbQuery();
+    pendingOriginEdit.set(ctx.from.id, true);
+
+    await ctx.reply(
+      '📍 *Ubah Origin*\n\nKetik asal kamu yang baru.\nKetik `-` jika ingin mengosongkan.',
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '❌ Batal', callback_data: 'cancel_edit_origin' }]
+          ]
+        }
+      }
+    );
+  });
+
+  bot.action('cancel_edit_origin', async (ctx) => {
+    await ctx.answerCbQuery();
+    pendingOriginEdit.delete(ctx.from.id);
+    await ctx.editMessageText('❌ Edit origin dibatalkan.', {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🔙 Kembali ke Profile', callback_data: 'btn_profile' }]
         ]
       }
     });
   });
+
+  // ─── Privacy settings ─────────────────────────────────────────────────────────
+  bot.action('privacy_settings', membershipMiddleware, async (ctx) => {
+    await ctx.answerCbQuery();
+    const privacy = await Database.getPrivacySettings(ctx.from.id);
+
+    await ctx.reply(
+      `🔒 *Pengaturan Privacy*\n\n` +
+      `Pilih field yang ingin kamu sembunyikan atau tampilkan di confession.\n\n` +
+      `• Username : ${privacy.hide_username ? '🙈 Tersembunyi' : '👁 Terlihat'}\n` +
+      `• Gender   : ${privacy.hide_gender ? '🙈 Tersembunyi' : '👁 Terlihat'}\n` +
+      `• Origin   : ${privacy.hide_origin ? '🙈 Tersembunyi' : '👁 Terlihat'}`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: `${privacy.hide_username ? '👁 Tampilkan' : '🙈 Sembunyikan'} Username`, callback_data: 'toggle_hide_username' }],
+            [{ text: `${privacy.hide_gender ? '👁 Tampilkan' : '🙈 Sembunyikan'} Gender`, callback_data: 'toggle_hide_gender' }],
+            [{ text: `${privacy.hide_origin ? '👁 Tampilkan' : '🙈 Sembunyikan'} Origin`, callback_data: 'toggle_hide_origin' }],
+            [{ text: '🔙 Kembali ke Profile', callback_data: 'btn_profile' }]
+          ]
+        }
+      }
+    );
+  });
+
+  bot.action(/^toggle_hide_(username|gender|origin)$/, membershipMiddleware, async (ctx) => {
+    await ctx.answerCbQuery();
+    const field = `hide_${ctx.match[1]}`; // hide_username / hide_gender / hide_origin
+    const privacy = await Database.getPrivacySettings(ctx.from.id);
+    const newValue = privacy[field] ? 0 : 1;
+
+    await Database.setPrivacyField(ctx.from.id, field, newValue);
+
+    // Refresh tampilan privacy_settings dengan data terbaru
+    const updated = await Database.getPrivacySettings(ctx.from.id);
+
+    await ctx.editMessageText(
+      `🔒 *Pengaturan Privacy*\n\n` +
+      `Pilih field yang ingin kamu sembunyikan atau tampilkan di confession.\n\n` +
+      `• Username : ${updated.hide_username ? '🙈 Tersembunyi' : '👁 Terlihat'}\n` +
+      `• Gender   : ${updated.hide_gender ? '🙈 Tersembunyi' : '👁 Terlihat'}\n` +
+      `• Origin   : ${updated.hide_origin ? '🙈 Tersembunyi' : '👁 Terlihat'}`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: `${updated.hide_username ? '👁 Tampilkan' : '🙈 Sembunyikan'} Username`, callback_data: 'toggle_hide_username' }],
+            [{ text: `${updated.hide_gender ? '👁 Tampilkan' : '🙈 Sembunyikan'} Gender`, callback_data: 'toggle_hide_gender' }],
+            [{ text: `${updated.hide_origin ? '👁 Tampilkan' : '🙈 Sembunyikan'} Origin`, callback_data: 'toggle_hide_origin' }],
+            [{ text: '🔙 Kembali ke Profile', callback_data: 'btn_profile' }]
+          ]
+        }
+      }
+    );
+  });
+
+  // bot.action('my_stats', membershipMiddleware, async (ctx) => {
+  //   await ctx.answerCbQuery();
+
+  //   const userId = ctx.from.id;
+
+  //   const statsText = `📊 *Statistik Anda*\n\n` +
+  //     `👤 User ID: \`${userId}\`\n` +
+  //     `🏆 Rank: Member\n\n` +
+  //     `_Data sedang dimuat dari database..._`;
+
+  //   await ctx.reply(statsText, {
+  //     parse_mode: 'Markdown',
+  //     reply_markup: {
+  //       inline_keyboard: [
+  //         [{ text: '🏠 Menu Utama', callback_data: 'back_to_main' }]
+  //       ]
+  //     }
+  //   });
+  // });
+
+  // bot.action('my_menfess', membershipMiddleware, async (ctx) => {
+  //   await ctx.answerCbQuery();
+
+  //   const menfessText = `📝 *Menfess Saya*\n\n_Sedang memuat data dari database..._`;
+
+  //   await ctx.reply(menfessText, {
+  //     parse_mode: 'Markdown',
+  //     reply_markup: {
+  //       inline_keyboard: [
+  //         [
+  //           { text: '🔄 Refresh', callback_data: 'my_menfess' },
+  //           { text: '🏠 Menu Utama', callback_data: 'back_to_main' }
+  //         ]
+  //       ]
+  //     }
+  //   });
+  // });
 
   bot.action('btn_upgrade_rank', membershipMiddleware, async (ctx) => {
     await ctx.answerCbQuery();
@@ -456,6 +590,30 @@ export default function startCommand(bot) {
           inline_keyboard: [
             [Markup.button.url('📞 Hubungi Admin', 'https://t.me/jzxty')],
             [Markup.button.callback('🔙 Kembali', 'btn_upgrade_rank')]
+          ]
+        }
+      }
+    );
+  });
+
+  bot.on('text', async (ctx, next) => {
+    const userId = ctx.from.id;
+
+    if (!pendingOriginEdit.has(userId)) return next();
+
+    const input = ctx.message.text.trim();
+    const origin = input === '-' ? null : input;
+
+    pendingOriginEdit.delete(userId);
+    await Database.updateOrigin(userId, origin);
+
+    await ctx.reply(
+      `✅ Origin berhasil diubah ke *${origin || 'kosong'}*.`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔙 Kembali ke Profile', callback_data: 'btn_profile' }]
           ]
         }
       }
