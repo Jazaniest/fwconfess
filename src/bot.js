@@ -97,31 +97,36 @@ export async function startBot() {
   startCommand(bot);
   const register = registerCommand(bot);
   const confess = confessCommand(bot, process.env.TARGET_CHANNEL_ID);
-  profileCommand(bot);
+  const { handleProfileText } = profileCommand(bot);
   const hitMe = hitMeCommand(bot);
   await hitMe.chatManager.syncSessionsWithDatabase();
   const daget = dagetCommand(bot, process.env.TARGET_CHANNEL_ID);
   const donasi = donasiCommand(bot, process.env.TRAKTEER_URL);
+  bot.on('text', handleProfileText);
+
   bot.on('text', async (ctx, next) => {
     // 1. Proses registrasi
     if (ctx.session?.registration?.gender && !ctx.session?.registration?.done) {
       if (register.handleRegisterText) return register.handleRegisterText(ctx, next);
     }
+
     // 2. Proses confession
     if (confess.isUserPending && confess.isUserPending(ctx.from.id)) {
       if (confess.handleConfessText) return confess.handleConfessText(ctx, next);
     }
+
+    // 3. Proses daget session
     if (daget.isUserInDagetSession(ctx)) {
       const handled = await daget.handleDagetText(ctx);
       if (handled) return;
     }
-    // 3. Proses anonymous chat
+
+    // 4. Proses anonymous chat
     if (hitMe.chatManager && hitMe.chatManager.isUserInChat(ctx.from.id)) {
       if (ctx.chat.type !== 'private') return next();
       return hitMe.chatManager.sendAnonymousMessage(ctx, ctx.from.id, ctx.message.text);
     }
-    // 5. Default
-    // 5. Default
+
     return next();
   });
 
