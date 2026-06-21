@@ -2,12 +2,11 @@
  * database.js — BARREL RE-EXPORT
  *
  * Semua query database telah dipindah ke src/repositories/ per domain.
- * File ini tetap ada untuk backward compatibility agar import
- *   import { Database } from './database.js'
- * tetap berfungsi.
+ * File ini tetap ada untuk backward compatibility.
  *
- * TODO (Phase 7): Setelah semua import diarahkan ke repo langsung,
- *   file ini bisa dihapus.
+ * 11 file masih mengimpor Database class dari sini.
+ * Jika nanti semua impor diarahkan ke repo langsung,
+ * file ini bisa dihapus.
  */
 import * as UserRepo from '../repositories/user.repo.js';
 import * as ConfessionRepo from '../repositories/confession.repo.js';
