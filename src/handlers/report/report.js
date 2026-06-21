@@ -1,5 +1,5 @@
 import { Markup } from 'telegraf';
-import { Database } from './database.js';
+import { Database } from '../../commands/database.js';
 
 const REPORT_REASONS = [
   { label: '🚫 Spam',            value: 'spam' },

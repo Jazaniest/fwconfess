@@ -1,6 +1,6 @@
 import { Markup } from 'telegraf';
-import { Database } from './database.js';
-import { getGenderEmoji, getRankEmoji } from '../utils/formatters.js';
+import { Database } from '../../commands/database.js';
+import { getGenderEmoji, getRankEmoji } from '../../utils/formatters.js';
 
 /**
  * Handler untuk fitur Show Me

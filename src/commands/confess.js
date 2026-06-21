@@ -4,9 +4,9 @@
  */
 import { Markup } from 'telegraf';
 import { Database } from './database.js';
-import commentHandler from './comment.js';
-import showMeHandler from './showme.js';
-import reportHandler from './report.js';
+import commentHandler from '../handlers/comment/comment.js';
+import showMeHandler from '../handlers/showme/showme.js';
+import reportHandler from '../handlers/report/report.js';
 import { renderMsg } from '../utils/formatters.js';
 import { createConfessionHandler } from '../handlers/confession.handler.js';
 

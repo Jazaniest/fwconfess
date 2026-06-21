@@ -5,8 +5,8 @@ import registerCommand from './commands/register.js';
 import confessCommand from './commands/confess.js';
 import profileCommand from './commands/profile.js';
 import hitMeCommand from './commands/hitme.js';
-import dagetCommand from './commands/daget.js';
-import donasiCommand from './commands/donasi.js';
+import dagetCommand from './handlers/daget.js';
+import donasiCommand from './handlers/donasi/donasi.js';
 import createBanMiddleware from './middleware/ban.js';
 
 dotenv.config();

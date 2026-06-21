@@ -1,6 +1,6 @@
 import { Markup } from 'telegraf';
-import { Database } from './database.js';
-import { formatRupiah } from '../utils/formatters.js';
+import { Database } from '../../commands/database.js';
+import { formatRupiah } from '../../utils/formatters.js';
 
 export default function donasiCommand(bot, trakteerUrl = 'https://trakteer.id/jzxyzx/tip') {
 

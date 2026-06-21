@@ -1,4 +1,4 @@
-import { Database } from './database.js';
+import { Database } from '../../commands/database.js';
 
 /**
  * Handler untuk sistem komentar confession
