@@ -7,7 +7,7 @@ import {
     dbMarkDagetCancelled,
     dbSaveDagetWinners,
     dbGetEligibleUsers,
-} from './database.js';
+} from '../repositories/daget.repo.js';
 import { ALL_RANKS, formatDate, escMd, ranksLabel } from '../utils/formatters.js';
 
 // ─── Utilitas ─────────────────────────────────────────────────────────────────

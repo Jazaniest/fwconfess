@@ -2,7 +2,7 @@
  * Ban middleware — cek apakah user sedang di-ban sebelum memproses request.
  * Dipasang di bot.use() pada bot.js.
  */
-import { Database } from '../commands/database.js';
+import { getActiveBan } from '../repositories/ban.repo.js';
 
 /**
  * Buat middleware ban check.
@@ -30,7 +30,7 @@ export default function createBanMiddleware() {
     if (!isPrivate && !isDiscussionGroup) return next();
 
     try {
-      const activeBan = await Database.getActiveBan(userId);
+      const activeBan = await getActiveBan(userId);
       if (!activeBan) return next();
 
       // User kena ban — susun pesan notifikasi
