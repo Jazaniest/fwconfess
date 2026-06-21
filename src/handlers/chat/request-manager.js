@@ -1,5 +1,5 @@
 import { Markup } from 'telegraf';
-import { Database } from './database.js';
+import { Database } from '../../commands/database.js';
 
 /**
  * Request Manager - Handles Hit Me requests and approvals

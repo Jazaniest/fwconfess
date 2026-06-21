@@ -1,5 +1,5 @@
 import { Markup } from 'telegraf';
-import { Database } from './database.js';
+import { Database } from '../../commands/database.js';
 
 /**
  * Reveal Manager - Handles identity reveal functionality

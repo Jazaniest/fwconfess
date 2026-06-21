@@ -1,8 +1,8 @@
 import { Markup } from 'telegraf';
 import { Database } from './database.js';
-import { ChatManager } from './chat-manager.js';
-import { RevealManager } from './reveal-manager.js';
-import { RequestManager } from './request-manager.js';
+import { ChatManager } from '../handlers/chat/chat-manager.js';
+import { RevealManager } from '../handlers/chat/reveal-manager.js';
+import { RequestManager } from '../handlers/chat/request-manager.js';
 import { isAdmin as isAdminUser } from '../middleware/admin-auth.js';
 
 /**
