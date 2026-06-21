@@ -8,13 +8,7 @@ import {
     dbSaveDagetWinners,
     dbGetEligibleUsers,
 } from './database.js';
-
-// ─── Konstanta ────────────────────────────────────────────────────────────────
-
-const ALL_RANKS = [
-    'ascendant', 'bronze', 'diamond', 'gold',
-    'member', 'mythos', 'platinum', 'silver',
-];
+import { ALL_RANKS, formatDate, escMd, ranksLabel } from '../utils/formatters.js';
 
 // ─── Utilitas ─────────────────────────────────────────────────────────────────
 
@@ -38,25 +32,6 @@ function parseDrawTime(str) {
     const [, dd, mm, yyyy, hh, min] = match;
     const date = new Date(`${yyyy}-${mm}-${dd}T${hh}:${min}:00`);
     return isNaN(date.getTime()) ? null : date;
-}
-
-/** Format Date ke string lokal Indonesia */
-function formatDate(date) {
-    return new Date(date).toLocaleString('id-ID', {
-        day: '2-digit', month: 'long', year: 'numeric',
-        hour: '2-digit', minute: '2-digit',
-        timeZone: 'Asia/Jakarta',
-    }) + ' WIB';
-}
-
-/** Escape karakter Markdown Telegram */
-function escMd(text) {
-    return String(text).replace(/[_*[\]()~`>#+=|{}.!\-]/g, '\\$&');
-}
-
-/** Label rank untuk ditampilkan */
-function ranksLabel(ranks) {
-    return ranks.length === ALL_RANKS.length ? 'Semua rank' : ranks.join(', ');
 }
 
 // ─── Scheduler ────────────────────────────────────────────────────────────────

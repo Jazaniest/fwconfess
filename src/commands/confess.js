@@ -3,6 +3,7 @@ import { Database } from './database.js';
 import commentHandler from './comment.js';
 import showMeHandler from './showme.js';
 import reportHandler from './report.js';
+import { formatConfessionMessage, getGenderEmoji, getRankEmoji, renderMsg } from '../utils/formatters.js';
 
 /**
  * Handler untuk logika menfess
@@ -40,14 +41,6 @@ export default function confessCommand(bot, targetChannelId) {
       msgHit: cfg['ratelimit_msg_hit'] || '⏰ Kamu sudah menfess {count}x dalam {hours} jam terakhir.\n\nCoba lagi setelah: *{next_time}*',
       msgSuccess: cfg['ratelimit_msg_success'] || '🎉 *Menfess berhasil dipublish!*\n\n⏰ Kamu bisa menfess lagi dalam {hours} jam',
     };
-  }
-
-  // Helper: render template dengan placeholder
-  function renderMsg(template, vars = {}) {
-    return Object.entries(vars).reduce(
-      (str, [k, v]) => str.replaceAll(`{${k}}`, v),
-      template
-    );
   }
 
   const commentSystem = commentHandler(bot, process.env.DISCUSSION_GROUP_ID);
@@ -327,58 +320,4 @@ export default function confessCommand(bot, targetChannelId) {
     showMeSystem,
     reportSystem
   };
-}
-
-// ─── Helper functions ────────────────────────────────────────────────────────
-
-function formatConfessionMessage(text, user) {
-  const genderEmoji = getGenderEmoji(user.gender);
-  const rankEmoji = getRankEmoji(user.rank);
-
-  const displayUsername = user.hide_username || !user.username
-    ? '*xxxxx*'
-    : `@${user.username}`;
-
-  const displayGender = user.hide_gender
-    ? '*xxxxx*'
-    : `*${user.gender || 'Unknown'}*`;
-
-  const displayOrigin = user.hide_origin
-    ? '*xxxxx*'
-    : `*${user.origin || 'Unknown'}*`;
-
-  const safeRank = user.rank || 'member';
-
-  return `💭 *ANONYMOUS CONFESSION*\n\n` +
-    `${text}\n\n` +
-    `━━━━━━━━━━━━━━━━━━━\n` +
-    `👤 By: ${displayUsername}\n` +
-    `${genderEmoji} Gender: ${displayGender}\n` +
-    `${rankEmoji} Rank: *${safeRank}*\n` +
-    `📍 Origin: ${displayOrigin}`;
-}
-
-function getGenderEmoji(gender) {
-  const genderEmojis = {
-    'male': '👨', 'female': '👩',
-    'laki-laki': '👨', 'perempuan': '👩',
-    'pria': '👨', 'wanita': '👩',
-    'l': '👨', 'p': '👩'
-  };
-  return genderEmojis[gender?.toLowerCase()] || '👤';
-}
-
-function getRankEmoji(rank) {
-  const rankEmojis = {
-    'admin': '👑',
-    'member': '👤',
-    'bronze': '🥉',
-    'silver': '🥈',
-    'gold': '🥇',
-    'platinum': '💠',
-    'diamond': '💎',
-    'ascendant': '🪽',
-    'mythos': '🌌'
-  };
-  return rankEmojis[rank?.toLowerCase()] || '👤';
 }

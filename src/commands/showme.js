@@ -1,5 +1,6 @@
 import { Markup } from 'telegraf';
 import { Database } from './database.js';
+import { getGenderEmoji, getRankEmoji } from '../utils/formatters.js';
 
 /**
  * Handler untuk fitur Show Me
@@ -374,23 +375,3 @@ export default function showMeHandler(bot) {
   };
 }
 
-// ─── Helper functions ────────────────────────────────────────────────────────
-
-function getGenderEmoji(gender) {
-  const genderEmojis = {
-    'male': '👨', 'female': '👩',
-    'laki-laki': '👨', 'perempuan': '👩',
-    'pria': '👨', 'wanita': '👩',
-    'l': '👨', 'p': '👩'
-  };
-  return genderEmojis[gender?.toLowerCase()] || '👤';
-}
-
-function getRankEmoji(rank) {
-  const rankEmojis = {
-    'admin': '👑', 'moderator': '🛡️',
-    'vip': '⭐', 'premium': '💎',
-    'member': '👤', 'newbie': '🌱'
-  };
-  return rankEmojis[rank?.toLowerCase()] || '👤';
-}

@@ -3,11 +3,7 @@ import { Database } from './database.js';
 import { ChatManager } from './chat-manager.js';
 import { RevealManager } from './reveal-manager.js';
 import { RequestManager } from './request-manager.js';
-
-function isAdminUser(userId) {
-  const adminId = process.env.ADMIN_ID;
-  return adminId && userId.toString() === adminId.toString();
-}
+import { isAdmin as isAdminUser } from '../middleware/admin-auth.js';
 
 /**
  * Handler untuk fitur Hit Me dan Anonymous Chat

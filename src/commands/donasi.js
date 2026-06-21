@@ -1,12 +1,6 @@
 import { Markup } from 'telegraf';
 import { Database } from './database.js';
-
-/** Format angka ke Rupiah */
-function formatRupiah(amount) {
-    return new Intl.NumberFormat('id-ID', {
-        style: 'currency', currency: 'IDR', minimumFractionDigits: 0
-    }).format(amount);
-}
+import { formatRupiah } from '../utils/formatters.js';
 
 export default function donasiCommand(bot, trakteerUrl = 'https://trakteer.id/jzxyzx/tip') {
 

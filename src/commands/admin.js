@@ -1,5 +1,6 @@
 import { Markup } from 'telegraf';
 import { Database } from './database.js';
+import { isAdmin, adminMiddleware } from '../middleware/admin-auth.js';
 
 /**
  * Handler untuk Admin Panel
@@ -9,33 +10,7 @@ import { Database } from './database.js';
 export default function adminPanel(bot, targetChannelId) {
   console.log('👑 Admin panel initialized');
 
-  /**
-   * Fungsi untuk memeriksa apakah user adalah admin
-   * @param {number} userId - ID user yang akan dicek
-   * @returns {boolean} - True jika user adalah admin
-   */
-  function isAdmin(userId) {
-    const adminId = process.env.ADMIN_ID;
-    return adminId && userId.toString() === adminId.toString();
-  }
-
-  /**
-   * Middleware khusus untuk memeriksa apakah user adalah admin
-   * @param {Context} ctx - Context dari Telegraf
-   * @param {Function} next - Fungsi next untuk melanjutkan
-   */
   const adminInputState = new Map();
-
-  async function adminMiddleware(ctx, next) {
-    const userId = ctx.from.id;
-    
-    if (!isAdmin(userId)) {
-      await ctx.answerCbQuery('❌ Akses ditolak! Hanya admin yang bisa mengakses fitur ini.');
-      return;
-    }
-    
-    return next();
-  }
 
   /**
    * Fungsi untuk menampilkan menu admin

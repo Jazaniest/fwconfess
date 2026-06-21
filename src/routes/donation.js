@@ -1,14 +1,8 @@
 import express from 'express';
 import { Database } from '../commands/database.js';
+import { formatRupiah } from '../utils/formatters.js';
 
 const router = express.Router();
-
-/** Format angka ke Rupiah */
-function formatRupiah(amount) {
-    return new Intl.NumberFormat('id-ID', {
-        style: 'currency', currency: 'IDR', minimumFractionDigits: 0
-    }).format(amount);
-}
 
 /**
  * Buat handler webhook donasi.
