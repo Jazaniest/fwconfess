@@ -39,12 +39,12 @@ export async function startBot() {
   startCommand(bot);
   const register = registerCommand(bot);
   const confess = confessCommand(bot, process.env.TARGET_CHANNEL_ID);
-  const { handleProfileText } = profileCommand(bot);
+  const { handleProfileText: handleOriginText } = profileCommand(bot);
   const hitMe = hitMeCommand(bot);
   await hitMe.chatManager.syncSessionsWithDatabase();
   const daget = dagetCommand(bot, process.env.TARGET_CHANNEL_ID);
   const donasi = donasiCommand(bot, process.env.TRAKTEER_URL);
-  bot.on('text', handleProfileText);
+  bot.on('text', handleOriginText);
 
   bot.on('text', async (ctx, next) => {
     // 1. Proses registrasi
