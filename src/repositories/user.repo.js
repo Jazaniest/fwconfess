@@ -113,6 +113,20 @@ export async function countNewUsers() {
   return { day1: d1.total, day7: d7.total, day30: d30.total };
 }
 
+export async function getActiveUsersToday() {
+  const [[{ total }]] = await db.query(
+    "SELECT COUNT(*) AS total FROM `users` WHERE `registered_at` >= NOW() - INTERVAL 1 DAY"
+  );
+  return total;
+}
+
+export async function getBannedUsersCount() {
+  const [[{ total }]] = await db.query(
+    'SELECT COUNT(*) AS total FROM `users` WHERE `is_active` = 0'
+  );
+  return total;
+}
+
 export async function getTotalUserConfessions(telegramId) {
   const [[{ total }]] = await db.query(
     'SELECT COUNT(*) AS total FROM `confessions` WHERE `telegram_id` = ?',

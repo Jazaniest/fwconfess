@@ -89,6 +89,15 @@ export async function cleanupOldRateLimits(windowMs = 8 * 60 * 60 * 1000) {
   return result.affectedRows;
 }
 
+// ─── Stats ────────────────────────────────────────────────────────────────────
+
+export async function getTotalConfessions() {
+  const [[{ total }]] = await db.query(
+    'SELECT COUNT(*) AS total FROM `confessions`'
+  );
+  return total;
+}
+
 // ─── Backward-compat aliases (confess.js) ────────────────────────────────────
 
 export async function countRecentConfessions(telegramId, windowMs) {

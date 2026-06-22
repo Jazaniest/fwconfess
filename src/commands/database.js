@@ -33,6 +33,7 @@ export class Database {
   static getUserFullProfile      = UserRepo.getUserFullProfile;
   static getUsersPaginated       = UserRepo.getUsersPaginated;
   static countAllUsers           = UserRepo.countAllUsers;
+  static getTotalUsers           = UserRepo.countAllUsers; // alias
   static searchUsers             = UserRepo.searchUsers;
   static countSearchUsers        = UserRepo.countSearchUsers;
   static getBannedUsersPaginated = UserRepo.getBannedUsersPaginated;
@@ -44,11 +45,14 @@ export class Database {
   static updateOrigin            = UserRepo.updateOrigin;
   static updateGender            = UserRepo.updateGender;
   static updateUsername          = UserRepo.updateUsername;
+  static getActiveUsersToday     = UserRepo.getActiveUsersToday;
+  static getBannedUsersCount     = UserRepo.getBannedUsersCount;
 
   // ── Confession ──
   static saveConfession               = ConfessionRepo.saveConfession;
   static getConfessionsByUserId       = ConfessionRepo.getConfessionsByUserId;
   static getConfessionByChannelMessageId = ConfessionRepo.getConfessionByChannelMessageId;
+  static getTotalConfessions          = ConfessionRepo.getTotalConfessions;
   static getLatestConfessionByUserId  = ConfessionRepo.getLatestConfessionByUserId;
   static countRecentActions           = ConfessionRepo.countRecentActions;
   static getOldestActionTime          = ConfessionRepo.getOldestActionTime;
