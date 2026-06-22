@@ -31,6 +31,9 @@ app.use('/admin', adminRouter);
 async function main() {
   const bot = await startBot();
 
+  // Simpan bot instance agar bisa diakses oleh express routes
+  app.locals.bot = bot;
+
   // Mount webhook donasi — harus sebelum app.listen
   const webhookSecret = process.env.TRAKTEER_WEBHOOK_SECRET || '';
   app.use('/donation', createDonationRouter(bot, process.env.TARGET_CHANNEL_ID, webhookSecret));

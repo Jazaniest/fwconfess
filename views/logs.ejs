@@ -1,19 +1,44 @@
-<!-- <% layout('layout', { title: 'Admin Logs' }) %> -->
-<table class="w-full bg-white rounded shadow">
-  <thead class="bg-gray-200">
-    <tr>
-      <th class="p-2">Action</th>
-      <th class="p-2">Target</th>
-      <th class="p-2">Timestamp</th>
-    </tr>
-  </thead>
-  <tbody>
-    <% logs.forEach(log => { %>
-      <tr class="border-b">
-        <td class="p-2"><%= log.admin_action %></td>
-        <td class="p-2"><%= log.target %></td>
-        <td class="p-2"><%= new Date(log.created_at).toLocaleString() %></td>
+<% layout('layout') %>
+
+<div class="mb-4 flex items-center gap-2">
+  <a href="/admin/logs" class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">🔄 Refresh</a>
+  <span class="text-sm text-gray-500">Total: <strong><%= total || logs.length %></strong> log(s)</span>
+</div>
+
+<div class="bg-white rounded shadow overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-gray-200 text-left">
+      <tr>
+        <th class="p-2">#</th>
+        <th class="p-2">Action</th>
+        <th class="p-2">Target</th>
+        <th class="p-2">Waktu</th>
       </tr>
-    <% }) %>
-  </tbody>
-</table>
+    </thead>
+    <tbody>
+      <% (logs || []).forEach((log, i) => { %>
+        <tr class="border-b hover:bg-gray-50">
+          <td class="p-2 text-xs text-gray-400"><%= log.id %></td>
+          <td class="p-2 font-mono text-xs"><%= log.admin_action %></td>
+          <td class="p-2"><%= log.target %></td>
+          <td class="p-2 text-xs"><%= new Date(log.created_at).toLocaleString('id-ID') %></td>
+        </tr>
+      <% }) %>
+      <% if (!logs || logs.length === 0) { %>
+        <tr><td colspan="4" class="p-4 text-center text-gray-400">Belum ada log aktivitas.</td></tr>
+      <% } %>
+    </tbody>
+  </table>
+</div>
+
+<% if (totalPages > 1) { %>
+  <div class="flex items-center justify-center gap-2 mt-4">
+    <% if (page > 0) { %>
+      <a href="/admin/logs?page=<%= page - 1 %>" class="px-3 py-1 bg-white border rounded hover:bg-gray-100">⬅ Sebelumnya</a>
+    <% } %>
+    <span class="text-sm text-gray-500">Hal <%= page + 1 %> dari <%= totalPages %></span>
+    <% if (page < totalPages - 1) { %>
+      <a href="/admin/logs?page=<%= page + 1 %>" class="px-3 py-1 bg-white border rounded hover:bg-gray-100">Selanjutnya ➡</a>
+    <% } %>
+  </div>
+<% } %>

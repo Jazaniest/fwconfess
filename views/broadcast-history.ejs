@@ -1,0 +1,29 @@
+<% layout('layout') %>
+
+<div class="bg-white rounded shadow overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-gray-200 text-left">
+      <tr>
+        <th class="p-2">#</th>
+        <th class="p-2">Pesan</th>
+        <th class="p-2">Terkirim</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% (broadcasts || []).forEach((b, i) => { %>
+        <tr class="border-b hover:bg-gray-50">
+          <td class="p-2 text-xs text-gray-400"><%= b.id %></td>
+          <td class="p-2 max-w-md"><%= b.message_text %></td>
+          <td class="p-2 text-xs"><%= b.sent_at ? new Date(b.sent_at).toLocaleString('id-ID') : '—' %></td>
+        </tr>
+      <% }) %>
+      <% if (!broadcasts || broadcasts.length === 0) { %>
+        <tr><td colspan="3" class="p-4 text-center text-gray-400">Belum ada broadcast.</td></tr>
+      <% } %>
+    </tbody>
+  </table>
+</div>
+
+<div class="mt-4">
+  <a href="/admin/broadcast" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">📢 Buat Broadcast Baru</a>
+</div>

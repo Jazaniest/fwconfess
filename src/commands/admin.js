@@ -30,7 +30,14 @@ import {
   handleAdminRankEdit, handleAdminRankToggleOne, handleAdminRankSetLimit,
   handleAdminPromoteUser, handleAdminDoPromote,
 } from '../handlers/admin/admin-settings.js';
-import { handleAdminBroadcast } from '../handlers/admin/admin-broadcast.js';
+import {
+  handleAdminBroadcast, handleAdminBroadcastPreview,
+  handleAdminBroadcastAll, handleAdminBroadcastWrite,
+  handleAdminBcTargetAll, handleAdminBcTargetActive, handleAdminBcTargetBanned,
+  handleAdminBcWriteAll, handleAdminBcWriteActive, handleAdminBcWriteBanned,
+  handleAdminBroadcastText, handleAdminBroadcastConfirmYes,
+  handleAdminBroadcastConfirmNo,
+} from '../handlers/admin/admin-broadcast.js';
 
 /**
  * Handler untuk Admin Panel
@@ -143,6 +150,17 @@ export default function adminPanel(bot, targetChannelId) {
 
   // ─── Broadcast ────────────────────────────────────────────────────────────
   bot.action('admin_broadcast', adminMiddleware, (ctx) => handleAdminBroadcast(ctx));
+  bot.action('admin_broadcast_preview', adminMiddleware, (ctx) => handleAdminBroadcastPreview(ctx));
+  bot.action('admin_broadcast_all', adminMiddleware, (ctx) => handleAdminBroadcastAll(ctx));
+  bot.action('admin_bc_target_all', adminMiddleware, (ctx) => handleAdminBcTargetAll(ctx));
+  bot.action('admin_bc_target_active', adminMiddleware, (ctx) => handleAdminBcTargetActive(ctx));
+  bot.action('admin_bc_target_banned', adminMiddleware, (ctx) => handleAdminBcTargetBanned(ctx));
+  bot.action('admin_broadcast_write', adminMiddleware, (ctx) => handleAdminBroadcastWrite(ctx));
+  bot.action('admin_bc_write_all', adminMiddleware, (ctx) => handleAdminBcWriteAll(ctx));
+  bot.action('admin_bc_write_active', adminMiddleware, (ctx) => handleAdminBcWriteActive(ctx));
+  bot.action('admin_bc_write_banned', adminMiddleware, (ctx) => handleAdminBcWriteBanned(ctx));
+  bot.action('admin_bc_confirm_yes', adminMiddleware, (ctx) => handleAdminBroadcastConfirmYes(ctx));
+  bot.action('admin_bc_confirm_no', adminMiddleware, (ctx) => handleAdminBroadcastConfirmNo(ctx));
 
   // ─── Settings ─────────────────────────────────────────────────────────────
   bot.action('admin_settings', adminMiddleware, (ctx) => handleAdminSettings(ctx));
@@ -189,9 +207,13 @@ export default function adminPanel(bot, targetChannelId) {
   bot.on('text', async (ctx, next) => {
     const userId = ctx.from.id;
 
-    if (!isAdmin(userId) || !adminInputState.has(userId)) {
-      return next();
-    }
+    if (!isAdmin(userId)) return next();
+
+    // Cek apakah admin dalam alur broadcast
+    const handled = await handleAdminBroadcastText(ctx);
+    if (handled) return;
+
+    if (!adminInputState.has(userId)) return next();
 
     const text = ctx.message.text.trim();
 

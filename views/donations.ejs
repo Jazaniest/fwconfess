@@ -1,0 +1,50 @@
+<% layout('layout') %>
+
+<div class="flex items-center justify-between mb-4">
+  <p class="text-sm text-gray-500">Total: <strong><%= total || donations.length %></strong> donasi</p>
+  <a href="/admin/donations" class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">🔄 Refresh</a>
+</div>
+
+<div class="bg-white rounded shadow overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-gray-200 text-left">
+      <tr>
+        <th class="p-2">#</th>
+        <th class="p-2">Nama</th>
+        <th class="p-2">Pesan</th>
+        <th class="p-2">Unit</th>
+        <th class="p-2">Jumlah</th>
+        <th class="p-2">Total</th>
+        <th class="p-2">Tanggal</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% (donations || []).forEach(d => { %>
+        <tr class="border-b hover:bg-gray-50">
+          <td class="p-2 text-xs text-gray-400"><%= d.id %></td>
+          <td class="p-2"><%= d.supporter_name %></td>
+          <td class="p-2 max-w-xs truncate text-xs"><%= d.supporter_message || '—' %></td>
+          <td class="p-2"><%= d.unit %></td>
+          <td class="p-2"><%= d.quantity %></td>
+          <td class="p-2 font-medium">Rp<%= Number(d.total_amount || d.price * d.quantity).toLocaleString('id-ID') %></td>
+          <td class="p-2 text-xs"><%= new Date(d.created_at).toLocaleString('id-ID') %></td>
+        </tr>
+      <% }) %>
+      <% if (!donations || donations.length === 0) { %>
+        <tr><td colspan="7" class="p-4 text-center text-gray-400">Belum ada donasi masuk.</td></tr>
+      <% } %>
+    </tbody>
+  </table>
+</div>
+
+<% if (totalPages > 1) { %>
+  <div class="flex items-center justify-center gap-2 mt-4">
+    <% if (page > 0) { %>
+      <a href="/admin/donations?page=<%= page - 1 %>" class="px-3 py-1 bg-white border rounded hover:bg-gray-100">⬅ Sebelumnya</a>
+    <% } %>
+    <span class="text-sm text-gray-500">Hal <%= page + 1 %> dari <%= totalPages %></span>
+    <% if (page < totalPages - 1) { %>
+      <a href="/admin/donations?page=<%= page + 1 %>" class="px-3 py-1 bg-white border rounded hover:bg-gray-100">Selanjutnya ➡</a>
+    <% } %>
+  </div>
+<% } %>

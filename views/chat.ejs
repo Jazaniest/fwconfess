@@ -1,0 +1,56 @@
+<% layout('layout') %>
+
+<div class="flex items-center justify-between mb-4">
+  <p class="text-sm text-gray-500">Total: <strong><%= total || sessions.length %></strong> session(s)</p>
+  <a href="/admin/chat" class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">🔄 Refresh</a>
+</div>
+
+<div class="bg-white rounded shadow overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-gray-200 text-left">
+      <tr>
+        <th class="p-2">#</th>
+        <th class="p-2">Confession</th>
+        <th class="p-2">Confessor</th>
+        <th class="p-2">Hitter</th>
+        <th class="p-2">Status</th>
+        <th class="p-2">Dibuat</th>
+        <th class="p-2">Selesai</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% (sessions || []).forEach(s => { %>
+        <tr class="border-b hover:bg-gray-50">
+          <td class="p-2 text-xs text-gray-400"><%= s.id %></td>
+          <td class="p-2 text-xs">#<%= s.confession_id %></td>
+          <td class="p-2 font-mono text-xs"><%= s.confessor_id %></td>
+          <td class="p-2 font-mono text-xs"><%= s.hitter_id %></td>
+          <td class="p-2">
+            <% if (s.is_active) { %>
+              <span class="text-green-600 font-medium">Aktif</span>
+            <% } else { %>
+              <span class="text-gray-400">Selesai</span>
+            <% } %>
+          </td>
+          <td class="p-2 text-xs"><%= new Date(s.created_at).toLocaleString('id-ID') %></td>
+          <td class="p-2 text-xs"><%= s.ended_at ? new Date(s.ended_at).toLocaleString('id-ID') : '—' %></td>
+        </tr>
+      <% }) %>
+      <% if (!sessions || sessions.length === 0) { %>
+        <tr><td colspan="7" class="p-4 text-center text-gray-400">Belum ada chat session.</td></tr>
+      <% } %>
+    </tbody>
+  </table>
+</div>
+
+<% if (totalPages > 1) { %>
+  <div class="flex items-center justify-center gap-2 mt-4">
+    <% if (page > 0) { %>
+      <a href="/admin/chat?page=<%= page - 1 %>" class="px-3 py-1 bg-white border rounded hover:bg-gray-100">⬅ Sebelumnya</a>
+    <% } %>
+    <span class="text-sm text-gray-500">Hal <%= page + 1 %> dari <%= totalPages %></span>
+    <% if (page < totalPages - 1) { %>
+      <a href="/admin/chat?page=<%= page + 1 %>" class="px-3 py-1 bg-white border rounded hover:bg-gray-100">Selanjutnya ➡</a>
+    <% } %>
+  </div>
+<% } %>

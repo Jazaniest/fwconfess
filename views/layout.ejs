@@ -3,25 +3,42 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title><%= title || 'Admin Panel' %></title>
+  <title><%= title || 'Admin Panel — FWB Confess' %></title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .sidebar-link { @apply block py-2 px-3 rounded text-sm hover:bg-gray-200 mb-0.5 transition-colors; }
+    .sidebar-link.active { @apply bg-blue-100 text-blue-700 font-medium; }
+  </style>
 </head>
-<body class="bg-gray-100 min-h-screen flex">
+<body class="bg-gray-100 min-h-screen flex text-gray-800">
   <!-- Sidebar -->
-  <aside class="w-64 bg-white shadow-md">
-    <nav class="p-4">
-      <% nav.forEach(item => { %>
-        <a href="<%= item.url %>" class="block py-2 px-3 rounded hover:bg-gray-200 mb-1">
+  <aside class="w-56 bg-white shadow-md flex flex-col shrink-0">
+    <div class="p-4 border-b">
+      <h2 class="text-lg font-bold text-blue-600">FWB Confess</h2>
+      <p class="text-xs text-gray-400">Admin Panel</p>
+    </div>
+    <nav class="p-3 flex-1 overflow-y-auto">
+      <% (nav || []).forEach(item => { %>
+        <a href="<%= item.url %>"
+           class="sidebar-link<%= item.active ? ' active' : '' %>">
           <%= item.label %>
         </a>
       <% }) %>
     </nav>
   </aside>
 
-  <!-- Content -->
-  <main class="flex-1 p-6">
-    <h1 class="text-2xl font-semibold mb-4"><%= title || 'Dashboard' %></h1>
-    <%- body %>
-  </main>
+  <!-- Main -->
+  <div class="flex-1 flex flex-col min-h-screen">
+    <!-- Top bar -->
+    <header class="bg-white shadow-sm px-6 py-3 flex items-center justify-between">
+      <h1 class="text-xl font-semibold"><%= title || 'Dashboard' %></h1>
+      <span class="text-sm text-gray-400"><%= new Date().toLocaleString('id-ID') %></span>
+    </header>
+
+    <!-- Content -->
+    <main class="flex-1 p-6">
+      <%- body %>
+    </main>
+  </div>
 </body>
 </html>

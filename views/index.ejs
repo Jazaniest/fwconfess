@@ -1,0 +1,60 @@
+<% layout('layout') %>
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+  <a href="/admin/users" class="bg-white p-5 rounded shadow hover:shadow-md transition block">
+    <p class="text-sm text-gray-500">👥 Total Users</p>
+    <p class="text-3xl font-bold text-blue-600"><%= sum.totalUsers %></p>
+  </a>
+  <a href="/admin/confessions" class="bg-white p-5 rounded shadow hover:shadow-md transition block">
+    <p class="text-sm text-gray-500">📝 Total Menfess</p>
+    <p class="text-3xl font-bold text-purple-600"><%= sum.totalConfessions %></p>
+  </a>
+  <a href="/admin/statistics" class="bg-white p-5 rounded shadow hover:shadow-md transition block">
+    <p class="text-sm text-gray-500">📈 Statistik Lengkap</p>
+    <p class="text-3xl font-bold text-green-600">→</p>
+  </a>
+  <a href="/admin/broadcast" class="bg-white p-5 rounded shadow hover:shadow-md transition block">
+    <p class="text-sm text-gray-500">📢 Broadcast</p>
+    <p class="text-3xl font-bold text-orange-600">→</p>
+  </a>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+  <!-- Recent confessions -->
+  <div class="bg-white rounded shadow">
+    <div class="px-4 py-3 border-b flex items-center justify-between">
+      <h2 class="font-medium">Menfess Terbaru</h2>
+      <a href="/admin/confessions" class="text-xs text-blue-500 hover:underline">Lihat semua</a>
+    </div>
+    <div class="divide-y">
+      <% (recentConfessions || []).forEach(c => { %>
+        <div class="px-4 py-2">
+          <p class="text-xs text-gray-400">#<%= c.id %> — <%= c.telegram_id %></p>
+          <p class="text-sm truncate"><%= (c.message_text || '').substring(0, 60) %></p>
+        </div>
+      <% }) %>
+      <% if (!recentConfessions || recentConfessions.length === 0) { %>
+        <div class="px-4 py-3 text-sm text-gray-400">Belum ada menfess.</div>
+      <% } %>
+    </div>
+  </div>
+
+  <!-- Recent donations -->
+  <div class="bg-white rounded shadow">
+    <div class="px-4 py-3 border-b flex items-center justify-between">
+      <h2 class="font-medium">Donasi Terbaru</h2>
+      <a href="/admin/donations" class="text-xs text-blue-500 hover:underline">Lihat semua</a>
+    </div>
+    <div class="divide-y">
+      <% (recentDonations || []).forEach(d => { %>
+        <div class="px-4 py-2">
+          <p class="text-sm"><%= d.supporter_name %> — <span class="font-medium">Rp<%= Number(d.total_amount).toLocaleString('id-ID') %></span></p>
+          <p class="text-xs text-gray-400"><%= d.unit %> x<%= d.quantity %></p>
+        </div>
+      <% }) %>
+      <% if (!recentDonations || recentDonations.length === 0) { %>
+        <div class="px-4 py-3 text-sm text-gray-400">Belum ada donasi.</div>
+      <% } %>
+    </div>
+  </div>
+</div>
