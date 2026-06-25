@@ -8,10 +8,10 @@ import { getUserById } from './user.repo.js';
 
 // ─── Confession CRUD ─────────────────────────────────────────────────────────
 
-export async function saveConfession(telegramId, messageText, channelMessageId) {
+export async function saveConfession(telegramId, messageText, channelMessageId, tags = null) {
   const [result] = await db.query(
-    'INSERT INTO `confessions` (`telegram_id`, `message_text`, `channel_message_id`) VALUES (?, ?, ?)',
-    [telegramId, messageText, channelMessageId]
+    'INSERT INTO `confessions` (`telegram_id`, `message_text`, `channel_message_id`, `tags`) VALUES (?, ?, ?, ?)',
+    [telegramId, messageText, channelMessageId, tags]
   );
   const [rows] = await db.query(
     'SELECT * FROM `confessions` WHERE `id` = ?',

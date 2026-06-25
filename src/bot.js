@@ -12,6 +12,8 @@ import { badgeEnforcer } from './middleware/badge-enforcer.js';
 import leaderboardCommand from './commands/leaderboard.js';
 import schedule from 'node-schedule';
 import { runWeeklyReset } from './jobs/weekly-reset.js';
+import searchCommand from './commands/search.js';
+
 
 
 
@@ -52,9 +54,15 @@ export async function startBot() {
   const daget = dagetCommand(bot, process.env.TARGET_CHANNEL_ID);
   const donasi = donasiCommand(bot, process.env.TRAKTEER_URL);
   leaderboardCommand(bot);
+  searchCommand(bot);
   bot.on('text', handleOriginText);
 
   bot.on('text', async (ctx, next) => {
+    // 0. Proses Tag Menfess
+    if (ctx.session?.pendingConfession?.text) {
+      if (confess.handleTagText) return confess.handleTagText(ctx);
+    }
+
     // 1. Proses registrasi
     if (ctx.session?.registration?.gender && !ctx.session?.registration?.done) {
       if (register.handleRegisterText) return register.handleRegisterText(ctx, next);
