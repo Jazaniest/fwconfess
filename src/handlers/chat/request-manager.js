@@ -9,7 +9,8 @@ export class RequestManager {
     this.bot = bot;
     this.chatManager = chatManager;
     this.pendingHitMeRequests = new Map();
-    this.ownerQueues = new Map();
+    // Mengganti antrian tunggal menjadi dua untuk prioritas
+    this.ownerQueues = new Map(); // { ownerId => { priority: [], normal: [] } }
   }
 
   // ─── Rate limit helper ───────────────────────────────────────────────────────
@@ -67,25 +68,27 @@ export class RequestManager {
   /**
    * Create hit me request
    */
-  async createHitMeRequest(ctx, confessionAuthorId, hitterId, confession) {
+  async createHitMeRequest(ctx, confessionAuthorId, hitterId, confession, isSuperHit = false) {
     try {
-      console.log('=== CREATING HIT ME REQUEST ===');
+      console.log(`=== CREATING HIT ME REQUEST (Super: ${isSuperHit}) ===`);
       console.log('Confessor:', confessionAuthorId, 'Hitter:', hitterId);
 
-      // ─── Rate limit check ───────────────────────────────────────────────────
-      const rlCfg       = await this._getRLConfig(hitterId);
-      const recentCount = await Database.countRecentActions(hitterId, 'hitme', rlCfg.windowMs);
+      // ─── Rate limit check (tidak berlaku untuk Super Hit) ───────────────────
+      if (!isSuperHit) {
+        const rlCfg       = await this._getRLConfig(hitterId);
+        const recentCount = await Database.countRecentActions(hitterId, 'hitme', rlCfg.windowMs);
 
-      if (recentCount >= rlCfg.maxCount) {
-        const oldest      = await Database.getOldestActionTime(hitterId, 'hitme', rlCfg.windowMs);
-        const nextAllowed = new Date(oldest.getTime() + rlCfg.windowMs);
-        const msg = `⏰ Kamu sudah melakukan Hit Me ${rlCfg.maxCount}x dalam ${rlCfg.windowHours} jam terakhir.\n\nCoba lagi setelah: *${nextAllowed.toLocaleString('id-ID')}*`;
-        if (ctx.chat?.type === 'private') {
-          await ctx.reply(msg, { parse_mode: 'Markdown' });
-        } else {
-          await ctx.telegram.sendMessage(hitterId, msg, { parse_mode: 'Markdown' });
+        if (recentCount >= rlCfg.maxCount) {
+            const oldest      = await Database.getOldestActionTime(hitterId, 'hitme', rlCfg.windowMs);
+            const nextAllowed = new Date(oldest.getTime() + rlCfg.windowMs);
+            const msg = `⏰ Kamu sudah melakukan Hit Me ${rlCfg.maxCount}x dalam ${rlCfg.windowHours} jam terakhir.\n\nCoba lagi setelah: *${nextAllowed.toLocaleString('id-ID')}*`;
+            if (ctx.chat?.type === 'private') {
+              await ctx.reply(msg, { parse_mode: 'Markdown' });
+            } else {
+              await ctx.telegram.sendMessage(hitterId, msg, { parse_mode: 'Markdown' });
+            }
+            return false;
         }
-        return false;
       }
 
       // Check if there's already a pending request from this hitter to this confessor
@@ -113,38 +116,43 @@ export class RequestManager {
         hitterId,
         confessionAuthorId,
         confessionId: confession.id,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        isSuperHit // Simpan status Super Hit
       });
 
-      // ✅ Masukkan ke antrian owner
-      const queue = this.ownerQueues.get(confessionAuthorId) || [];
-      queue.push(requestId);
+      // Masukkan ke antrian yang sesuai
+      const queue = this.ownerQueues.get(confessionAuthorId) || { priority: [], normal: [] };
+      if (isSuperHit) {
+        queue.priority.push(requestId);
+      } else {
+        queue.normal.push(requestId);
+      }
       this.ownerQueues.set(confessionAuthorId, queue);
 
-      console.log(`📋 Queue owner ${confessionAuthorId}: ${queue.length} request(s)`);
+      console.log(`📋 Queue owner ${confessionAuthorId}: Prio ${queue.priority.length}, Norm ${queue.normal.length}`);
 
-      // ✅ Kirim notif ke owner HANYA jika ini request pertama di antrian
-      if (queue.length === 1) {
+      // Kirim notif ke owner HANYA jika ini request pertama di antrian (total)
+      if (queue.priority.length + queue.normal.length === 1) {
         const hitterInfo = await this.getHitterDisplayInfo(ctx, hitterId);
         console.log('Got hitter info:', hitterInfo);
+
+        const messagePrefix = isSuperHit
+          ? `🌟 *Super Hit Request!*\n\nSeseorang menggunakan koin untuk chat denganmu!`
+          : `💝 *Hit Me Request!*\n\nSeseorang ingin chat dengan kamu terkait confession kamu!`;
 
         console.log('Sending approval request to confessor...');
         try {
           await ctx.telegram.sendMessage(
             confessionAuthorId,
-            `💝 *Hit Me Request!*\n\n` +
-            `🎯 Seseorang ingin chat dengan kamu terkait confession kamu!\n\n` +
+            `${messagePrefix}\n\n` +
             `👤 **Info Hitter:**\n` +
             `• Gender: ${hitterInfo.gender}\n` +
             `• Origin: ${hitterInfo.origin}\n` +
             `• Rank: ${hitterInfo.rank}\n\n` +
             `🤔 **Apakah kamu mau chat anonymous dengan orang ini?**\n\n` +
-            `✅ Jika setuju, kalian akan chat secara anonymous\n` +
-            `❌ Jika tidak, permintaan akan ditolak\n\n` +
             `⏰ *Permintaan ini akan expired dalam 10 menit*`,
             {
               parse_mode: 'Markdown',
-              link_preview_options: { is_disabled: true }, // Mencegah preview link otomatis jika ada teks sensitif
               reply_markup: {
                 inline_keyboard: [[
                   { text: '✅ Terima', callback_data: `approve_hitme_${requestId}` },
@@ -156,22 +164,25 @@ export class RequestManager {
           console.log('Approval request sent to confessor successfully');
         } catch (sendError) {
           console.error('Error sending approval request to confessor:', sendError);
-          // Rollback data jika bot gagal mengirim pesan (misal: user memblokir bot)
+          // Rollback
           this.pendingHitMeRequests.delete(requestId);
-          this.ownerQueues.set(confessionAuthorId, queue.filter(id => id !== requestId));
+          // Hapus dari antrian yang benar
+          if (isSuperHit) queue.priority = queue.priority.filter(id => id !== requestId);
+          else queue.normal = queue.normal.filter(id => id !== requestId);
+          this.ownerQueues.set(confessionAuthorId, queue);
           return false;
         }
       }
 
-      // ✅ Notify hitter bahwa request terkirim
-      const successMessage = '📤 *Permintaan Hit Me Terkirim!*\n\n' +
-        '⏳ Permintaan kamu telah dikirim ke pembuat confession\n' +
-        '🔔 Mereka akan mendapat notifikasi di bot pribadi\n' +
-        '⏱️ Tunggu persetujuan dari mereka\n\n' +
-        '💡 *Permintaan akan expired dalam 10 menit*';
+      // Notify hitter bahwa request terkirim
+      const successMessage = isSuperHit
+        ? '🌟 *Super Hit Terkirim!*\n\nPermintaan prioritas kamu telah dikirim. Semoga diterima!'
+        : '📤 *Permintaan Hit Me Terkirim!*\n\nTunggu persetujuan dari mereka.';
 
-      // Catat ke DB setelah request berhasil dibuat (bukan setelah approve)
-      await Database.recordActionSent(hitterId, 'hitme');
+      // Catat ke DB setelah request berhasil dibuat (tidak berlaku untuk Super Hit)
+      if (!isSuperHit) {
+        await Database.recordActionSent(hitterId, 'hitme');
+      }
 
       try {
         if (ctx.chat.type === 'private') {
@@ -384,38 +395,48 @@ export class RequestManager {
   }
 
   async finishAndDequeue(ctx, ownerId, doneRequestId) {
-    const queue = this.ownerQueues.get(ownerId) || [];
-    const newQueue = queue.filter(id => id !== doneRequestId);
+    const queue = this.ownerQueues.get(ownerId) || { priority: [], normal: [] };
+
+    // Hapus request yang selesai dari antrian mana pun ia berada
+    queue.priority = queue.priority.filter(id => id !== doneRequestId);
+    queue.normal = queue.normal.filter(id => id !== doneRequestId);
     this.pendingHitMeRequests.delete(doneRequestId);
 
-    if (newQueue.length === 0) {
+    // Jika kedua antrian kosong, hapus entri owner
+    if (queue.priority.length === 0 && queue.normal.length === 0) {
       this.ownerQueues.delete(ownerId);
       return;
     }
 
-    this.ownerQueues.set(ownerId, newQueue);
+    this.ownerQueues.set(ownerId, queue);
 
-    const nextRequestId = newQueue[0];
+    // Ambil request berikutnya, utamakan dari antrian prioritas
+    const nextRequestId = queue.priority[0] || queue.normal[0];
+    if (!nextRequestId) return; // Seharusnya tidak terjadi, tapi untuk keamanan
+
     const nextRequest = this.pendingHitMeRequests.get(nextRequestId);
     if (!nextRequest) {
+      // Jika request tidak ditemukan (mungkin expired), proses request berikutnya
       await this.finishAndDequeue(ctx, ownerId, nextRequestId);
       return;
     }
 
     try {
       const hitterInfo = await this.getHitterDisplayInfo(ctx, nextRequest.hitterId);
+      const isSuperHit = nextRequest.isSuperHit;
+
+      const messagePrefix = isSuperHit
+          ? `🌟 *Super Hit Request!*\n\nSeseorang menggunakan koin untuk chat denganmu!`
+          : `💝 *Hit Me Request!*\n\nSeseorang ingin chat dengan kamu terkait confession kamu!`;
 
       await ctx.telegram.sendMessage(
         ownerId,
-        `💝 *Hit Me Request!*\n\n` +
-        `🎯 Seseorang ingin chat dengan kamu terkait confession kamu!\n\n` +
+        `${messagePrefix}\n\n` +
         `👤 **Info Hitter:**\n` +
         `• Gender: ${hitterInfo.gender}\n` +
         `• Origin: ${hitterInfo.origin}\n` +
         `• Rank: ${hitterInfo.rank}\n\n` +
         `🤔 **Apakah kamu mau chat anonymous dengan orang ini?**\n\n` +
-        `✅ Jika setuju, kalian akan chat secara anonymous\n` +
-        `❌ Jika tidak, permintaan akan ditolak\n\n` +
         `⏰ *Permintaan ini akan expired dalam 10 menit*`,
         {
           parse_mode: 'Markdown',
@@ -429,6 +450,7 @@ export class RequestManager {
       );
     } catch (err) {
       console.error('Error sending next queued hit me request:', err);
+      // Jika gagal mengirim, coba proses request berikutnya dalam antrian
       await this.finishAndDequeue(ctx, ownerId, nextRequestId);
     }
   }

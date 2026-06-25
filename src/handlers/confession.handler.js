@@ -155,10 +155,15 @@ export function createConfessionHandler(pendingMap, targetChannelId, commentSyst
       });
 
       try {
-        inlineKeyboard.push([
-          showMeSystem.createShowMeButton(result.message_id)[0],
-          reportSystem.createReportButton(result.message_id)
-        ]);
+        inlineKeyboard.push(
+          [
+            showMeSystem.createShowMeButton(result.message_id)[0],
+            reportSystem.createReportButton(result.message_id)
+          ],
+          [
+            { text: '🌟 Super Hit (1 Koin)', callback_data: `superhit_${user.telegram_id}` }
+          ]
+        );
         await ctx.telegram.editMessageReplyMarkup(
           targetChannelId,
           result.message_id,

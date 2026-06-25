@@ -6,6 +6,8 @@ import { RequestManager } from '../handlers/chat/request-manager.js';
 import { isAdmin as isAdminUser } from '../middleware/admin-auth.js';
 import * as LeaderboardRepo from '../repositories/leaderboard.repo.js';
 import * as AchievementRepo from '../repositories/achievement.repo.js';
+import * as EconomyRepo from '../repositories/economy.repo.js';
+
 
 
 
@@ -62,12 +64,55 @@ export default function hitMeCommand(bot) {
     }
   });
 
+  // Handler untuk tombol Super Hit
+  bot.action(/^superhit_(\d+)$/, async (ctx) => {
+    const hitterId = ctx.from.id;
+    await ctx.answerCbQuery();
+
+    try {
+        const SUPER_HIT_COST = 1;
+        const wallet = await EconomyRepo.getWallet(hitterId);
+
+        if (wallet.balance < SUPER_HIT_COST) {
+            return ctx.reply(
+                `⚠️ Koin tidak cukup!\n\nKamu butuh *${SUPER_HIT_COST} koin* untuk Super Hit, tapi saldo kamu hanya *${wallet.balance} koin*.\n\nSilakan top up terlebih dahulu.`,
+                {
+                    parse_mode: 'Markdown',
+                    reply_markup: Markup.inlineKeyboard([
+                        [Markup.button.callback('➕ Top Up Sekarang', 'topup')]
+                    ]).reply_markup
+                }
+            );
+        }
+
+        const success = await EconomyRepo.spendCoins(
+            hitterId,
+            SUPER_HIT_COST,
+            'spend_super_hit',
+            `Super Hit untuk user ${ctx.match[1]}`
+        );
+
+        if (!success) {
+            return ctx.reply('❌ Gagal menggunakan koin. Saldo mungkin tidak mencukupi. Coba lagi.');
+        }
+
+        // Jika berhasil, proses seperti Hit Me biasa tapi dengan prioritas
+        const confessionAuthorId = parseInt(ctx.match[1]);
+        await ctx.reply(`✅ *Super Hit Terkirim!* (1 koin digunakan)\n\nPermintaan kamu telah diprioritaskan. Mohon tunggu balasan...`);
+        await processHitMeRequest(ctx, confessionAuthorId, hitterId, requestManager, true); // true untuk isSuperHit
+
+    } catch (error) {
+        console.error('Error in super hit handler:', error);
+        await ctx.reply('❌ Terjadi kesalahan saat mengirim Super Hit.');
+    }
+  });
+
   /**
    * Process Hit Me request
    */
-  async function processHitMeRequest(ctx, confessionAuthorId, hitterId, requestManager) {
+  async function processHitMeRequest(ctx, confessionAuthorId, hitterId, requestManager, isSuperHit = false) {
     try {
-      console.log('=== PROCESSING HIT ME REQUEST ===');
+      console.log(`=== PROCESSING HIT ME REQUEST (Super: ${isSuperHit}) ===`);
 
       const validationResult = await validateHitMeRequest(confessionAuthorId, hitterId);
       console.log('Validation result:', validationResult.valid ? 'PASSED' : 'FAILED');
@@ -99,7 +144,8 @@ export default function hitMeCommand(bot) {
         ctx,
         confessionAuthorId,
         hitterId,
-        validationResult.confession
+        validationResult.confession,
+        isSuperHit
       );
 
     } catch (error) {
