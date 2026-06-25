@@ -4,6 +4,8 @@
  */
 import { Database } from '../commands/database.js';
 import { formatConfessionMessage, renderMsg } from '../utils/formatters.js';
+import * as LeaderboardRepo from '../repositories/leaderboard.repo.js';
+
 
 /**
  * Buat confession handler.
@@ -149,6 +151,10 @@ export function createConfessionHandler(pendingMap, targetChannelId, commentSyst
       console.log('💾 Saving confession to database...');
       await Database.saveConfession(userId, text, result.message_id);
       console.log('✅ Confession saved to database');
+
+      // Lacak untuk papan peringkat
+      await LeaderboardRepo.recordAction(userId, 'weekly_confessions');
+
 
       const successMessage = renderMsg(rlCfg.msgSuccess, {
         hours: rlCfg.windowHours,

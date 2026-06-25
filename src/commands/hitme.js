@@ -4,6 +4,8 @@ import { ChatManager } from '../handlers/chat/chat-manager.js';
 import { RevealManager } from '../handlers/chat/reveal-manager.js';
 import { RequestManager } from '../handlers/chat/request-manager.js';
 import { isAdmin as isAdminUser } from '../middleware/admin-auth.js';
+import * as LeaderboardRepo from '../repositories/leaderboard.repo.js';
+
 
 /**
  * Handler untuk fitur Hit Me dan Anonymous Chat
@@ -78,6 +80,9 @@ export default function hitMeCommand(bot) {
           return await ctx.telegram.sendMessage(hitterId, message, keyboard || {});
         }
       }
+
+      // Lacak untuk papan peringkat
+      await LeaderboardRepo.recordAction(confessionAuthorId, 'weekly_hitme_received');
 
       const success = await requestManager.createHitMeRequest(
         ctx,

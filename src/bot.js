@@ -8,6 +8,12 @@ import hitMeCommand from './commands/hitme.js';
 import dagetCommand from './handlers/daget.js';
 import donasiCommand from './handlers/donasi/donasi.js';
 import createBanMiddleware from './middleware/ban.js';
+import { badgeEnforcer } from './middleware/badge-enforcer.js';
+import leaderboardCommand from './commands/leaderboard.js';
+import schedule from 'node-schedule';
+import { runWeeklyReset } from './jobs/weekly-reset.js';
+
+
 
 dotenv.config();
 
@@ -34,6 +40,7 @@ export async function startBot() {
 
   // ─── Ban middleware global ────────────────────────────────────────────────────
   bot.use(createBanMiddleware());
+  bot.use(badgeEnforcer());
 
   // Daftar semua command
   startCommand(bot);
@@ -44,6 +51,7 @@ export async function startBot() {
   await hitMe.chatManager.syncSessionsWithDatabase();
   const daget = dagetCommand(bot, process.env.TARGET_CHANNEL_ID);
   const donasi = donasiCommand(bot, process.env.TRAKTEER_URL);
+  leaderboardCommand(bot);
   bot.on('text', handleOriginText);
 
   bot.on('text', async (ctx, next) => {
@@ -90,6 +98,10 @@ export async function startBot() {
       description: 'Lihat & buat daget'
     },
     {
+      command: 'leaderboard',
+      description: 'Lihat Papan Peringkat Mingguan'
+    },
+    {
       command: 'donasi',
       description: 'Support bot dengan donasi'
     }
@@ -108,6 +120,14 @@ export async function startBot() {
     console.error('❌ bot.launch() error:', err);
     process.exit(1);
   });
+
+  // Jadwalkan reset mingguan
+  schedule.scheduleJob('1 0 * * 1', () => {
+    console.log('⏰ Menjalankan job reset mingguan...');
+    runWeeklyReset(bot, process.env.DISCUSSION_GROUP_ID);
+  });
+  console.log('🗓️ Job reset mingguan telah dijadwalkan setiap Senin pukul 00:01.');
+
 
   console.log('🤖 Bot menfess sudah berjalan (polling)');
 

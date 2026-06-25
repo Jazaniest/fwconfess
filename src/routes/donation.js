@@ -1,6 +1,8 @@
 import express from 'express';
 import { Database } from '../commands/database.js';
 import { formatRupiah } from '../utils/formatters.js';
+import * as LeaderboardRepo from '../repositories/leaderboard.repo.js';
+
 
 const router = express.Router();
 
@@ -46,6 +48,17 @@ export function createDonationRouter(bot, channelId, webhookSecret) {
             if (!donation) {
                 console.log(`⏭️ [DONASI] Duplicate transaction_id: ${transaction_id}`);
                 return res.status(200).json({ status: 'duplicate' });
+            }
+
+            // Lacak untuk papan peringkat
+            // Trakteer meneruskan query params dari URL ke webhook payload
+            const userId = payload.query?.tid || payload.tid;
+            if (userId) {
+                // Skor didasarkan pada jumlah donasi dalam Rupiah
+                const score = parseInt(price) * parseInt(quantity);
+                await LeaderboardRepo.recordAction(parseInt(userId), 'weekly_donations', score);
+            } else {
+                console.log('ℹ️ [DONASI] Donasi tanpa telegram_id, tidak masuk leaderboard.');
             }
 
             console.log(`✅ [DONASI] Donasi masuk: ${donation.supporter_name} — ${donation.quantity}x ${donation.unit}`);
