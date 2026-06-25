@@ -5,6 +5,8 @@
 import { Database } from '../commands/database.js';
 import { formatConfessionMessage, renderMsg } from '../utils/formatters.js';
 import * as LeaderboardRepo from '../repositories/leaderboard.repo.js';
+import * as AchievementRepo from '../repositories/achievement.repo.js';
+
 
 
 /**
@@ -155,6 +157,20 @@ export function createConfessionHandler(pendingMap, targetChannelId, commentSyst
       // Lacak untuk papan peringkat
       await LeaderboardRepo.recordAction(userId, 'weekly_confessions');
 
+
+      // Cek dan berikan achievement
+      const totalConfessions = await Database.getTotalUserConfessions(userId);
+      if (totalConfessions === 1) {
+        const newAchievement = await AchievementRepo.unlockAchievement(userId, 'FIRST_CONFESSION');
+        if (newAchievement) {
+          ctx.reply(`🎉 *Achievement Unlocked: ${newAchievement.icon} ${newAchievement.title}!*\n_${newAchievement.description}_`, { parse_mode: 'Markdown' });
+        }
+      } else if (totalConfessions === 10) {
+        const tenConfAchievement = await AchievementRepo.unlockAchievement(userId, 'TEN_CONFESSIONS');
+        if (tenConfAchievement) {
+          ctx.reply(`🎉 *Achievement Unlocked: ${tenConfAchievement.icon} ${tenConfAchievement.title}!*\n_${tenConfAchievement.description}_`, { parse_mode: 'Markdown' });
+        }
+      }
 
       const successMessage = renderMsg(rlCfg.msgSuccess, {
         hours: rlCfg.windowHours,

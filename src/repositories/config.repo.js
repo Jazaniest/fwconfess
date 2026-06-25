@@ -64,14 +64,14 @@ export async function getActiveRanks() {
 
 // ─── Donations ──────────────────────────────────────────────────────────────
 
-export async function saveDonation({ transactionId, supporterName, supporterMessage, unit, quantity, price }) {
+export async function saveDonation({ transactionId, supporterName, supporterMessage, unit, quantity, price, userId }) {
   try {
     const totalAmount = quantity * price;
     const [result] = await db.query(
       `INSERT INTO \`donations\`
-        (\`transaction_id\`, \`supporter_name\`, \`supporter_message\`, \`unit\`, \`quantity\`, \`price\`, \`total_amount\`)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [transactionId, supporterName || 'Anonim', supporterMessage || null, unit, quantity, price, totalAmount]
+        (\`transaction_id\`, \`supporter_name\`, \`supporter_message\`, \`unit\`, \`quantity\`, \`price\`, \`total_amount\`, \`user_id\`)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [transactionId, supporterName || 'Anonim', supporterMessage || null, unit, quantity, price, totalAmount, userId || null]
     );
     const [rows] = await db.query('SELECT * FROM `donations` WHERE `id` = ?', [result.insertId]);
     return rows[0];
@@ -80,6 +80,7 @@ export async function saveDonation({ transactionId, supporterName, supporterMess
     throw err;
   }
 }
+
 
 export async function getTotalDonations() {
   const [[{ total }]] = await db.query('SELECT COALESCE(SUM(`total_amount`), 0) AS total FROM `donations`');
@@ -111,4 +112,9 @@ export async function getRecentDonations(limit = 5) {
 export async function getTotalDonationCount() {
   const [[{ total }]] = await db.query('SELECT COUNT(*) AS total FROM `donations`');
   return total;
+}
+
+export async function getTotalDonationCountByUserId(userId) {
+    const [[{ total }]] = await db.query('SELECT COUNT(*) AS total FROM `donations` WHERE `user_id` = ?', [userId]);
+    return total;
 }

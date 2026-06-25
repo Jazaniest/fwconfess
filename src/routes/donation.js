@@ -2,6 +2,8 @@ import express from 'express';
 import { Database } from '../commands/database.js';
 import { formatRupiah } from '../utils/formatters.js';
 import * as LeaderboardRepo from '../repositories/leaderboard.repo.js';
+import * as AchievementRepo from '../repositories/achievement.repo.js';
+
 
 
 const router = express.Router();
@@ -34,6 +36,8 @@ export function createDonationRouter(bot, channelId, webhookSecret) {
         }
 
         try {
+            const userId = payload.query?.tid || payload.tid || null;
+
             // Simpan ke database (duplikat diabaikan)
             const donation = await Database.saveDonation({
                 transactionId: transaction_id,
@@ -42,7 +46,9 @@ export function createDonationRouter(bot, channelId, webhookSecret) {
                 unit,
                 quantity: parseInt(quantity),
                 price: parseInt(price),
+                userId: userId ? parseInt(userId) : null,
             });
+
 
             // Duplicate transaction → respon 200 tapi tidak kirim notif lagi
             if (!donation) {
@@ -54,9 +60,19 @@ export function createDonationRouter(bot, channelId, webhookSecret) {
             // Trakteer meneruskan query params dari URL ke webhook payload
             const userId = payload.query?.tid || payload.tid;
             if (userId) {
+                const parsedUserId = parseInt(userId);
                 // Skor didasarkan pada jumlah donasi dalam Rupiah
                 const score = parseInt(price) * parseInt(quantity);
-                await LeaderboardRepo.recordAction(parseInt(userId), 'weekly_donations', score);
+                await LeaderboardRepo.recordAction(parsedUserId, 'weekly_donations', score);
+
+                // Cek dan berikan achievement donasi pertama
+                const totalDonationsFromUser = await Database.getTotalDonationCountByUserId(parsedUserId);
+                if (totalDonationsFromUser === 1) {
+                    const newAchievement = await AchievementRepo.unlockAchievement(parsedUserId, 'FIRST_DONATION');
+                    if (newAchievement) {
+                        bot.telegram.sendMessage(parsedUserId, `🎉 *Achievement Unlocked: ${newAchievement.icon} ${newAchievement.title}!*\n_${newAchievement.description}_`, { parse_mode: 'Markdown' });
+                    }
+                }
             } else {
                 console.log('ℹ️ [DONASI] Donasi tanpa telegram_id, tidak masuk leaderboard.');
             }

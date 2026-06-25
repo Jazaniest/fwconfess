@@ -17,6 +17,8 @@ import {
   togglePrivacy,
   handleOriginText,
 } from '../handlers/profile.handler.js';
+import * as AchievementRepo from '../repositories/achievement.repo.js';
+
 
 export default function profileCommand(bot) {
 
@@ -73,8 +75,11 @@ export default function profileCommand(bot) {
       }
 
       // We leverage showProfile but need editMessageText specific to /profile flow
-      const totalConfessions = await Database.getTotalUserConfessions(userId);
-      const privacy = await Database.getPrivacySettings(userId);
+      const [totalConfessions, privacy, achievements] = await Promise.all([
+          Database.getTotalUserConfessions(userId),
+          Database.getPrivacySettings(userId),
+          AchievementRepo.getUserAchievements(userId)
+      ]);
 
       const joinDate = userProfile.registered_at
         ? new Date(userProfile.registered_at).toLocaleDateString('id-ID', {
@@ -83,6 +88,14 @@ export default function profileCommand(bot) {
         : 'Tidak diketahui';
 
       const memberStatus = userProfile.is_active === 1 ? '✅ Active' : '❌ Inactive';
+
+      let achievementText = '';
+      if (achievements.length > 0) {
+          achievementText += `\n\n🏅 *Achievements:*\n`;
+          achievements.forEach(ach => {
+              achievementText += `${ach.icon} ${ach.title}\n`;
+          });
+      }
 
       const profileText =
         `👤 *Profile Anda*\n\n` +
@@ -93,7 +106,8 @@ export default function profileCommand(bot) {
         `🎯 Status: ${memberStatus}\n` +
         `📍 Origin: ${userProfile.origin || 'Tidak diisi'}\n` +
         `👥 Gender: ${userProfile.gender || 'Tidak diisi'}\n` +
-        `🏆 Rank: ${userProfile.rank || 'Member'}\n\n` +
+        `🏆 Rank: ${userProfile.rank || 'Member'}\n` +
+        `${achievementText}\n\n` +
         `🔒 *Privacy:*\n` +
         `• Username : ${privacy.hide_username ? '🙈 Tersembunyi' : '👁 Terlihat'}\n` +
         `• Gender   : ${privacy.hide_gender ? '🙈 Tersembunyi' : '👁 Terlihat'}\n` +

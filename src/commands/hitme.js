@@ -5,6 +5,8 @@ import { RevealManager } from '../handlers/chat/reveal-manager.js';
 import { RequestManager } from '../handlers/chat/request-manager.js';
 import { isAdmin as isAdminUser } from '../middleware/admin-auth.js';
 import * as LeaderboardRepo from '../repositories/leaderboard.repo.js';
+import * as AchievementRepo from '../repositories/achievement.repo.js';
+
 
 
 /**
@@ -83,6 +85,15 @@ export default function hitMeCommand(bot) {
 
       // Lacak untuk papan peringkat
       await LeaderboardRepo.recordAction(confessionAuthorId, 'weekly_hitme_received');
+
+      // Cek dan berikan achievement
+      const totalHits = await Database.getTotalHitsReceived(confessionAuthorId);
+      if (totalHits === 1) {
+          const newAchievement = await AchievementRepo.unlockAchievement(confessionAuthorId, 'FIRST_HIT');
+          if (newAchievement) {
+              bot.telegram.sendMessage(confessionAuthorId, `🎉 *Achievement Unlocked: ${newAchievement.icon} ${newAchievement.title}!*\n_${newAchievement.description}_`, { parse_mode: 'Markdown' });
+          }
+      }
 
       const success = await requestManager.createHitMeRequest(
         ctx,

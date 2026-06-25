@@ -54,6 +54,11 @@ export async function getChatSessionById(sessionId) {
   return rows[0] || null;
 }
 
+export async function getTotalHitsReceived(userId) {
+    const [[{ total }]] = await db.query('SELECT COUNT(*) AS total FROM `chat_sessions` WHERE `confessor_id` = ?', [userId]);
+    return total;
+}
+
 export async function saveAnonymousMessage(sessionId, senderId, messageText, messageType = 'text') {
   const [result] = await db.query(
     'INSERT INTO `anonymous_messages` (`session_id`, `sender_id`, `message_text`, `message_type`) VALUES (?, ?, ?, ?)',
