@@ -3,6 +3,7 @@
  */
 import { Database } from '../../commands/database.js';
 import { db } from '../../services/db.js';
+import { configService } from '../../services/config.service.js';
 
 export async function handleAdminSettings(ctx) {
   await ctx.editMessageText(
@@ -13,24 +14,82 @@ export async function handleAdminSettings(ctx) {
         inline_keyboard: [
           [
             { text: '⏰ Rate Limit', callback_data: 'admin_set_ratelimit' },
-            { text: '📝 Max Length', callback_data: 'admin_set_maxlength' }
-          ],
-          [
-            { text: '🔧 Maintenance', callback_data: 'admin_maintenance' },
-            { text: '📊 Logs', callback_data: 'admin_logs' }
-          ],
-          [
-            { text: '🎯 Auto Mod', callback_data: 'admin_automod' },
-            { text: '📢 Announcements', callback_data: 'admin_announcements' }
+            { text: '🔧 Maintenance', callback_data: 'admin_maintenance' }
           ],
           [
             { text: '🏆 Pengaturan Rank', callback_data: 'admin_rank_settings' },
+            { text: '💡 Toggle Fitur', callback_data: 'admin_feature_flags' }
+          ],
+          [
             { text: '🏠 Kembali', callback_data: 'back_to_admin' }
           ]
         ]
       }
     }
   );
+}
+
+// ─── Feature Flags & Maintenance ──────────────────────────────────────────
+
+async function getFeatureFlagMenu(ctx) {
+    const keys = [
+        'maintenance_mode_enabled', 'feature_leaderboard_enabled',
+        'feature_achievements_enabled', 'feature_superhit_enabled',
+        'feature_rank_purchase_enabled', 'feature_tagging_enabled'
+    ];
+
+    let text = '💡 *Toggle Fitur & Mode Pemeliharaan*\n\nKlik tombol untuk mengaktifkan/menonaktifkan.\n\n';
+    const buttons = [];
+
+    // Maintenance Mode
+    const isMaintenance = configService.isMaintenanceMode();
+    text += `🔧 Mode Pemeliharaan: *${isMaintenance ? '✅ AKTIF' : '❌ NONAKTIF'}*\n`;
+    buttons.push([{ text: `${isMaintenance ? '🔴 Matikan' : '🟢 Nyalakan'} Maintenance`, callback_data: 'toggle_maintenance_mode' }]);
+
+    // Feature Flags
+    text += '\n*Fitur Individual:*\n';
+    keys.filter(k => k.startsWith('feature_')).forEach(key => {
+        const featureName = key.replace('feature_', '').replace('_enabled', '');
+        const isEnabled = configService.get(key) === '1';
+        text += `• ${featureName.replace(/_/g, ' ')}: *${isEnabled ? '✅' : '❌'}*\n`;
+        buttons.push([{ text: `${isEnabled ? '🔴' : '🟢'} ${featureName}`, callback_data: `toggle_feature_${featureName}` }]);
+    });
+
+    buttons.push([{ text: '🏠 Kembali ke Pengaturan', callback_data: 'admin_settings' }]);
+
+    return { text, buttons };
+}
+
+export async function handleFeatureFlagsMenu(ctx) {
+    await ctx.answerCbQuery();
+    const { text, buttons } = await getFeatureFlagMenu(ctx);
+    await ctx.editMessageText(text, {
+        parse_mode: 'Markdown',
+        reply_markup: { inline_keyboard: buttons }
+    });
+}
+
+export async function handleToggleMaintenance(ctx) {
+    await ctx.answerCbQuery();
+    const currentStatus = configService.isMaintenanceMode();
+    await configService.set('maintenance_mode_enabled', currentStatus ? '0' : '1');
+    const { text, buttons } = await getFeatureFlagMenu(ctx);
+    await ctx.editMessageText(text, {
+        parse_mode: 'Markdown',
+        reply_markup: { inline_keyboard: buttons }
+    });
+}
+
+export async function handleToggleFeature(ctx, featureName) {
+    await ctx.answerCbQuery();
+    const key = `feature_${featureName}_enabled`;
+    const currentStatus = configService.get(key) === '1';
+    await configService.set(key, currentStatus ? '0' : '1');
+    const { text, buttons } = await getFeatureFlagMenu(ctx);
+    await ctx.editMessageText(text, {
+        parse_mode: 'Markdown',
+        reply_markup: { inline_keyboard: buttons }
+    });
 }
 
 // ─── Rate Limit ─────────────────────────────────────────────────────────────

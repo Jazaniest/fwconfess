@@ -6,6 +6,8 @@ import { Database } from '../commands/database.js';
 import { formatConfessionMessage, renderMsg } from '../utils/formatters.js';
 import * as LeaderboardRepo from '../repositories/leaderboard.repo.js';
 import * as AchievementRepo from '../repositories/achievement.repo.js';
+import { configService } from '../services/config.service.js';
+
 
 
 
@@ -155,15 +157,19 @@ export function createConfessionHandler(pendingMap, targetChannelId, commentSyst
       });
 
       try {
-        inlineKeyboard.push(
+        const buttons = [
           [
             showMeSystem.createShowMeButton(result.message_id)[0],
             reportSystem.createReportButton(result.message_id)
-          ],
-          [
-            { text: '🌟 Super Hit (1 Koin)', callback_data: `superhit_${user.telegram_id}` }
           ]
-        );
+        ];
+
+        if (configService.isFeatureEnabled('superhit')) {
+            buttons.push([{ text: '🌟 Super Hit (1 Koin)', callback_data: `superhit_${user.telegram_id}` }]);
+        }
+
+        inlineKeyboard.push(...buttons);
+
         await ctx.telegram.editMessageReplyMarkup(
           targetChannelId,
           result.message_id,

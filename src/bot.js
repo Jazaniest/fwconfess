@@ -1,5 +1,6 @@
 import { Telegraf, session } from 'telegraf';
 import dotenv from 'dotenv';
+import { configService } from './services/config.service.js';
 import startCommand from './commands/start.js';
 import registerCommand from './commands/register.js';
 import confessCommand from './commands/confess.js';
@@ -7,6 +8,7 @@ import profileCommand from './commands/profile.js';
 import hitMeCommand from './commands/hitme.js';
 import dagetCommand from './handlers/daget.js';
 import donasiCommand from './handlers/donasi/donasi.js';
+import { maintenanceMode } from './middleware/maintenance.js';
 import createBanMiddleware from './middleware/ban.js';
 import { badgeEnforcer } from './middleware/badge-enforcer.js';
 import leaderboardCommand from './commands/leaderboard.js';
@@ -24,6 +26,8 @@ import rankCommand from './commands/rank.js';
 dotenv.config();
 
 export async function startBot() {
+  await configService.init(); // Muat konfigurasi ke cache
+
   const token = process.env.BOT_TOKEN;
   if (!token) {
     console.error('Error: BOT_TOKEN tidak ditemukan di environment variables.');
@@ -32,6 +36,7 @@ export async function startBot() {
 
   const bot = new Telegraf(token);
   bot.use(session({ defaultSession: () => ({}) }));
+  bot.use(maintenanceMode());
 
   bot.catch((err, ctx) => {
     console.error(`❌ Bot error for update ${ctx.update?.update_id}:`, err.message);

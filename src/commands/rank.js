@@ -3,6 +3,7 @@ import { db } from '../services/db.js';
 import * as EconomyRepo from '../repositories/economy.repo.js';
 import * as UserRepo from '../repositories/user.repo.js';
 import { privateChatOnly } from '../middleware/private-chat-only.js';
+import { configService } from '../services/config.service.js';
 
 async function getAvailableRanks() {
     const [rows] = await db.query(
@@ -14,6 +15,9 @@ async function getAvailableRanks() {
 
 export default function rankCommand(bot) {
     const showRankMenu = async (ctx) => {
+        if (!configService.isFeatureEnabled('rank_purchase')) {
+            return ctx.reply('ℹ️ Fitur peningkatan rank sedang tidak aktif saat ini.');
+        }
         try {
             const userId = ctx.from.id;
             const [user, ranks, wallet] = await Promise.all([

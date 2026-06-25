@@ -38,6 +38,9 @@ import {
   handleAdminBroadcastText, handleAdminBroadcastConfirmYes,
   handleAdminBroadcastConfirmNo,
 } from '../handlers/admin/admin-broadcast.js';
+import {
+    handleFeatureFlagsMenu, handleToggleMaintenance, handleToggleFeature
+} from '../handlers/admin/admin-settings.js';
 
 /**
  * Handler untuk Admin Panel
@@ -164,6 +167,12 @@ export default function adminPanel(bot, targetChannelId) {
 
   // ─── Settings ─────────────────────────────────────────────────────────────
   bot.action('admin_settings', adminMiddleware, (ctx) => handleAdminSettings(ctx));
+
+  // Feature Flags & Maintenance
+  bot.action('admin_feature_flags', adminMiddleware, (ctx) => handleFeatureFlagsMenu(ctx));
+  bot.action('toggle_maintenance_mode', adminMiddleware, (ctx) => handleToggleMaintenance(ctx));
+  bot.action(/^toggle_feature_(.+)$/, adminMiddleware, (ctx) => handleToggleFeature(ctx, ctx.match[1]));
+
   bot.action('admin_set_ratelimit', adminMiddleware, (ctx) => handleAdminSetRatelimit(ctx));
   bot.action('admin_rl_set_max', adminMiddleware, (ctx) => handleAdminRlSetMax(ctx, adminInputState));
   bot.action('admin_rl_set_hours', adminMiddleware, (ctx) => handleAdminRlSetHours(ctx, adminInputState));

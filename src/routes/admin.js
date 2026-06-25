@@ -11,6 +11,7 @@ import * as BanRepo from '../repositories/ban.repo.js';
 import * as ConfigRepo from '../repositories/config.repo.js';
 import * as ChatRepo from '../repositories/chat.repo.js';
 import { isAdmin } from '../middleware/admin-auth.js';
+import { configService } from '../services/config.service.js';
 
 const router = Router();
 const PER_PAGE = 20;
@@ -28,7 +29,9 @@ const NAV = [
   { url: '/admin/broadcast',  label: '📢 Broadcast' },
   { url: '/admin/blacklist',  label: '🚫 Blacklist' },
   { url: '/admin/logs',       label: '📜 Logs' },
+  { url: '/admin/settings',   label: '⚙️ Settings' },
 ];
+
 
 function activeNav(url) {
   return NAV.map(n => ({ ...n, active: n.url === url }));
@@ -412,6 +415,48 @@ router.post('/blacklist/:id/delete', requireAdmin, async (req, res) => {
     console.error('Error deleting blacklist word:', error);
     res.status(500).send('Gagal menghapus kata blacklist.');
   }
+});
+
+// ─── Settings ──────────────────────────────────────────────────────────────────
+
+router.get('/settings', requireAdmin, async (req, res) => {
+    const keys = [
+        'maintenance_mode_enabled', 'maintenance_mode_message',
+        'feature_leaderboard_enabled', 'feature_achievements_enabled',
+        'feature_superhit_enabled', 'feature_rank_purchase_enabled', 'feature_tagging_enabled'
+    ];
+    const configs = await ConfigRepo.getConfigs(keys);
+    res.render('settings', {
+        nav: activeNav('/admin/settings'),
+        title: 'Bot Settings',
+        configs
+    });
+});
+
+router.post('/settings', requireAdmin, async (req, res) => {
+    try {
+        const { maintenance_mode_message, all_features } = req.body;
+
+        // Update maintenance message
+        await configService.set('maintenance_mode_message', maintenance_mode_message);
+
+        // Update maintenance mode status
+        const maintenanceEnabled = req.body.maintenance_mode_enabled ? '1' : '0';
+        await configService.set('maintenance_mode_enabled', maintenanceEnabled);
+
+        // Update feature flags
+        if (all_features && Array.isArray(all_features)) {
+            for (const key of all_features) {
+                const isEnabled = req.body[key] ? '1' : '0';
+                await configService.set(key, isEnabled);
+            }
+        }
+
+        res.redirect('/admin/settings');
+    } catch (error) {
+        console.error('Error updating settings:', error);
+        res.status(500).send('Gagal menyimpan pengaturan.');
+    }
 });
 
 export default router;

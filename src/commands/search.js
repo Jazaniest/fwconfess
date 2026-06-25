@@ -1,5 +1,6 @@
 import { Markup } from 'telegraf';
 import { db } from '../services/db.js';
+import { configService } from '../services/config.service.js';
 
 async function searchByTag(tag, limit = 5, offset = 0) {
   const [rows] = await db.query(
@@ -12,6 +13,9 @@ async function searchByTag(tag, limit = 5, offset = 0) {
 
 export default function searchCommand(bot) {
   bot.command(['caritagar', 'tag'], async (ctx) => {
+    if (!configService.isFeatureEnabled('tagging')) {
+        return ctx.reply('ℹ️ Fitur pencarian tag sedang tidak aktif saat ini.');
+    }
     const args = ctx.message.text.split(' ');
     if (args.length < 2) {
       return ctx.reply('Gunakan: `/tag <namatag>` atau `/caritagar <namatag>`', { parse_mode: 'Markdown' });

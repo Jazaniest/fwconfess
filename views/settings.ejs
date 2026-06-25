@@ -1,0 +1,37 @@
+<% layout('layout') %>
+
+<h1 class="text-2xl font-bold mb-4">Pengaturan Bot</h1>
+
+<form action="/admin/settings" method="POST">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+    <div class="space-y-6">
+        <!-- Maintenance Mode -->
+        <div class="bg-white p-4 rounded-lg shadow">
+            <h2 class="text-lg font-semibold mb-2">Mode Pemeliharaan</h2>
+            <div class="flex items-center">
+                <input type="checkbox" name="maintenance_mode_enabled" id="maintenance_mode" class="h-4 w-4 rounded" <%= configs.maintenance_mode_enabled === '1' ? 'checked' : '' %>>
+                <label for="maintenance_mode" class="ml-2 block text-sm text-gray-900">Aktifkan Mode Pemeliharaan</label>
+            </div>
+            <textarea name="maintenance_mode_message" rows="2" class="mt-2 w-full border rounded p-2 text-sm" placeholder="Pesan pemeliharaan..."><%= configs.maintenance_mode_message %></textarea>
+        </div>
+
+        <!-- Feature Flags -->
+        <div class="bg-white p-4 rounded-lg shadow">
+            <h2 class="text-lg font-semibold mb-2">Saklar Fitur (Feature Flags)</h2>
+            <div class="grid grid-cols-2 gap-4">
+                <% Object.keys(configs).filter(k => k.startsWith('feature_')).forEach(key => { %>
+                    <div class="flex items-center">
+                        <input type="hidden" name="all_features[]" value="<%= key %>">
+                        <input type="checkbox" name="<%= key %>" id="<%= key %>" class="h-4 w-4 rounded" <%= configs[key] === '1' ? 'checked' : '' %>>
+                        <label for="<%= key %>" class="ml-2 block text-sm text-gray-900"><%= key.replace('feature_', '').replace('_enabled', '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) %></label>
+                    </div>
+                <% }) %>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-6">
+        <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium">Simpan Pengaturan</button>
+    </div>
+</form>

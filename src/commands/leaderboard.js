@@ -1,6 +1,7 @@
 import { Markup } from 'telegraf';
 import { db } from '../services/db.js';
 import { getWeek } from 'date-fns';
+import { configService } from '../services/config.service.js';
 
 async function getLeaderboardData(type, week, year, limit = 5) {
   const [rows] = await db.query(
@@ -30,6 +31,9 @@ function formatLeaderboard(title, icon, data) {
 
 export default function leaderboardCommand(bot) {
   bot.command('leaderboard', async (ctx) => {
+    if (!configService.isFeatureEnabled('leaderboard')) {
+        return ctx.reply('ℹ️ Fitur papan peringkat sedang tidak aktif saat ini.');
+    }
     try {
       const now = new Date();
       const weekOfYear = getWeek(now, { weekStartsOn: 1 });
@@ -62,6 +66,10 @@ export default function leaderboardCommand(bot) {
   });
 
   bot.action('leaderboard_refresh', async (ctx) => {
+    if (!configService.isFeatureEnabled('leaderboard')) {
+        await ctx.answerCbQuery('ℹ️ Fitur papan peringkat sedang tidak aktif.', { show_alert: true });
+        return;
+    }
     try {
       await ctx.answerCbQuery('🔄 Memperbarui...');
       const now = new Date();
