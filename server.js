@@ -7,6 +7,9 @@ import { startBot } from './src/bot.js';
 import { createDonationRouter } from './src/routes/donation.js';
 import adminRouter from './src/routes/admin.js';
 import donasiCommand from './src/handlers/donasi/donasi.js';
+import cookieParser from 'cookie-parser';
+import csrf from 'csurf';
+
 
 dotenv.config();
 
@@ -21,12 +24,41 @@ app.set('views', path.resolve('./views'));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(session({ secret: process.env.SESSION_SECRET || 'keyboard cat', resave: false, saveUninitialized: true }));
+app.use(cookieParser());
 
 // Keep-alive endpoint
 app.get('/', (req, res) => res.send('✅ Bot is alive!'));
 
+// CSRF protection setup
+const csrfProtection = csrf({ cookie: true });
+
+// Middleware untuk membuat CSRF token tersedia di semua view
+// Ini harus ada sebelum app.use('/admin', ...)
+app.use((req, res, next) => {
+  // Hanya jalankan csrfProtection jika bukan webhook
+  if (req.path.startsWith('/donation')) {
+    return next();
+  }
+  csrfProtection(req, res, next);
+});
+
+app.use((req, res, next) => {
+  if (req.csrfToken) {
+    res.locals.csrfToken = req.csrfToken();
+  }
+  next();
+});
+
 // Admin panel routes
 app.use('/admin', adminRouter);
+
+// Error handler untuk CSRF
+app.use((err, req, res, next) => {
+  if (err.code !== 'EBADCSRFTOKEN') return next(err);
+  // handle CSRF token errors here
+  res.status(403).send('form tampered with');
+});
+
 
 async function main() {
   const bot = await startBot();

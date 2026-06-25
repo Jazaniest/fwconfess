@@ -38,10 +38,12 @@
           <td class="p-2 text-xs"><%= u.registered_at ? new Date(u.registered_at).toLocaleDateString('id-ID') : '—' %></td>
           <td class="p-2 space-x-1">
             <form action="/admin/users/<%= u.telegram_id %>/suspend" method="POST" class="inline">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
               <button class="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-xs"
                 <%= !u.is_active ? 'disabled' : '' %>>Suspend</button>
             </form>
             <form action="/admin/users/<%= u.telegram_id %>/activate" method="POST" class="inline">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
               <button class="px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-xs"
                 <%= u.is_active ? 'disabled' : '' %>>Activate</button>
             </form>

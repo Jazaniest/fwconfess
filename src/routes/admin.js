@@ -37,14 +37,14 @@ function activeNav(url) {
 // ─── Auth middleware ───────────────────────────────────────────────────────────
 
 function requireAdmin(req, res, next) {
-  const adminId = process.env.ADMIN_ID;
-  // Allow if no ADMIN_ID set (dev), or if query param ?admin=ADMIN_ID
-  if (!adminId || req.query.admin === adminId) return next();
-  // Also check session
-  if (req.session?.adminAuthed) return next();
-  // Simple auth page
-  res.send(`
-    <form method="POST" class="max-w-sm mx-auto mt-20 p-6 bg-white rounded shadow">
+  if (req.session?.adminAuthed) {
+    return next();
+  }
+
+  // Jika belum terotentikasi, tampilkan form login.
+  // Pastikan ada rute POST untuk menangani form ini.
+  res.status(401).send(`
+    <form method="POST" action="/admin/login" class="max-w-sm mx-auto mt-20 p-6 bg-white rounded shadow">
       <h1 class="text-xl font-bold mb-4">🔐 Admin Login</h1>
       <input name="admin_id" type="password" class="w-full border rounded p-2 mb-3" placeholder="Admin ID" />
       <button class="w-full px-4 py-2 bg-blue-600 text-white rounded">Login</button>
@@ -52,8 +52,13 @@ function requireAdmin(req, res, next) {
   `);
 }
 
-router.post('/', (req, res) => {
+router.post('/login', (req, res) => {
   const adminId = process.env.ADMIN_ID;
+  if (!adminId) {
+    console.error('FATAL: ADMIN_ID is not set in environment variables.');
+    return res.status(500).send('Server configuration error.');
+  }
+
   if (adminId && req.body.admin_id === adminId) {
     req.session.adminAuthed = true;
     return res.redirect('/admin');

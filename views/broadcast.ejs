@@ -1,6 +1,7 @@
 <% layout('layout') %>
 
 <form action="/admin/broadcast/send" method="POST" class="max-w-2xl bg-white p-6 rounded shadow space-y-4">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
   <div>
     <label class="block text-sm font-medium mb-1">Jenis Broadcast</label>
     <select name="target_type" class="w-full border rounded p-2 text-sm">

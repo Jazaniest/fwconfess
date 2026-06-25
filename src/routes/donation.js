@@ -16,11 +16,11 @@ export function createDonationRouter(bot, channelId, webhookSecret) {
     router.post('/donation', express.json(), async (req, res) => {
 
         // Verifikasi secret token
-        // const token = req.headers['x-trakteer-token'] || req.headers['authorization'];
-        // if (webhookSecret && token !== webhookSecret) {
-        //     console.warn('⚠️ [DONASI] Webhook ditolak: token tidak valid');
-        //     return res.status(401).json({ error: 'Unauthorized' });
-        // }
+        const token = req.headers['x-trakteer-token'] || req.headers['authorization'];
+        if (webhookSecret && token !== webhookSecret) {
+            console.warn('⚠️ [DONASI] Webhook ditolak: token tidak valid');
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
 
         const payload = req.body;
 

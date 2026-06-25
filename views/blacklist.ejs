@@ -2,6 +2,7 @@
 
 <div class="max-w-lg">
   <form action="/admin/blacklist" method="POST" class="flex gap-2 mb-4">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
     <input name="word" type="text" class="flex-1 border rounded p-2 text-sm" placeholder="Tambah kata baru..." required />
     <button type="submit" class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-sm font-medium">Tambah</button>
   </form>
@@ -12,6 +13,7 @@
         <span class="text-sm"><%= w.word %></span>
         <form action="/admin/blacklist/<%= w.id %>/delete" method="POST" class="inline"
               onsubmit="return confirm('Hapus kata &quot;<%= w.word %>&quot;?')">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <button class="px-2 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200 text-xs">Hapus</button>
         </form>
       </div>

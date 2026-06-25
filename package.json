@@ -18,6 +18,9 @@
     "express-ejs-layouts": "^2.5.1",
     "express-session": "^1.18.2",
     "mysql2": "^3.22.3",
-    "telegraf": "^4.16.3"
+    "telegraf": "^4.16.3",
+    "cookie-parser": "^1.4.6",
+    "csurf": "^1.11.0"
+
   }
 }

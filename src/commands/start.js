@@ -3,6 +3,8 @@ import adminPanel from './admin.js';
 import { Database } from './database.js';
 import { checkMembership, showJoinRequirement } from '../middleware/membership.js';
 import { showMainMenu } from '../handlers/start.handler.js';
+import { privateChatOnly } from '../middleware/private-chat-only.js';
+
 
 /**
  * Handler untuk perintah /start
@@ -51,7 +53,7 @@ export default function startCommand(bot) {
     await showMainMenu(ctx);
   });
 
-  bot.command('menfess', membershipMiddleware, async (ctx) => {
+  bot.command('menfess', privateChatOnly('Gunakan perintah /menfess di chat pribadi dengan bot.'), membershipMiddleware, async (ctx) => {
     const userId = ctx.from.id;
     console.log(`📣 Menfess command from user: ${userId}`);
 
@@ -95,7 +97,7 @@ export default function startCommand(bot) {
 
   // === USER MENU HANDLERS ===
 
-  bot.action('btn_view', membershipMiddleware, async (ctx) => {
+  bot.action('btn_view', privateChatOnly(), membershipMiddleware, async (ctx) => {
     await ctx.answerCbQuery();
 
     try {

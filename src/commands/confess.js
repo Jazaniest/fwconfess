@@ -9,6 +9,8 @@ import showMeHandler from '../handlers/showme/showme.js';
 import reportHandler from '../handlers/report/report.js';
 import { renderMsg } from '../utils/formatters.js';
 import { createConfessionHandler } from '../handlers/confession.handler.js';
+import { privateChatOnly } from '../middleware/private-chat-only.js';
+
 
 /**
  * @param {Telegraf} bot
@@ -36,7 +38,7 @@ export default function confessCommand(bot, targetChannelId) {
   console.log('💬 Comment system enabled:', commentSystem.isCommentSystemEnabled());
 
   // Tombol Kirim Menfess
-  bot.action('btn_confess', async (ctx) => {
+  bot.action('btn_confess', privateChatOnly('Proses mengirim menfess hanya bisa dilakukan di chat pribadi.'), async (ctx) => {
     try {
       console.log('🔘 Button confess clicked by user:', ctx.from.id);
       await ctx.answerCbQuery();
@@ -102,7 +104,7 @@ export default function confessCommand(bot, targetChannelId) {
   });
 
   // Command untuk cancel confession
-  bot.command('cancel', async (ctx) => {
+  bot.command('cancel', privateChatOnly(), async (ctx) => {
     const userId = ctx.from.id;
     if (pending.has(userId)) {
       pending.delete(userId);

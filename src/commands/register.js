@@ -1,5 +1,7 @@
 import { db } from '../services/db.js'
 import { Markup } from 'telegraf'
+import { privateChatOnly } from '../middleware/private-chat-only.js';
+
 
 /**
  * Handler untuk perintah /register: mendaftarkan user ke DB MySQL
@@ -7,7 +9,7 @@ import { Markup } from 'telegraf'
  */
 
 export default function registerCommand(bot) {
-  bot.command('register', async (ctx) => {
+  bot.command('register', privateChatOnly('Untuk mendaftar, silakan mulai chat pribadi dengan saya.'), async (ctx) => {
     const telegramId = ctx.from.id
 
     try {
@@ -42,7 +44,7 @@ export default function registerCommand(bot) {
     }
   })
 
-  bot.action('btn_register', async (ctx) => {
+  bot.action('btn_register', privateChatOnly('Proses registrasi hanya bisa dilakukan di chat pribadi.'), async (ctx) => {
     await ctx.answerCbQuery()
     const telegramId = ctx.from.id
 
