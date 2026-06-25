@@ -13,6 +13,8 @@ import leaderboardCommand from './commands/leaderboard.js';
 import schedule from 'node-schedule';
 import { runWeeklyReset } from './jobs/weekly-reset.js';
 import searchCommand from './commands/search.js';
+import economyCommand from './commands/economy.js';
+
 
 
 
@@ -55,6 +57,7 @@ export async function startBot() {
   const donasi = donasiCommand(bot, process.env.TRAKTEER_URL);
   leaderboardCommand(bot);
   searchCommand(bot);
+  economyCommand(bot);
   bot.on('text', handleOriginText);
 
   bot.on('text', async (ctx, next) => {
