@@ -6,9 +6,6 @@ export default function donasiCommand(bot, trakteerUrl = 'https://trakteer.id/jz
 
     // ── /donasi & tombol menu ───────────────────────────────────────────────────
     async function showDonasiMenu(ctx) {
-        const userId = ctx.from.id;
-        const dynamicTrakteerUrl = `${trakteerUrl}?tid=${userId}`;
-
         try {
             const [totalAmount, totalCount, topDonators, recent] = await Promise.all([
                 Database.getTotalDonations(),
@@ -43,11 +40,12 @@ export default function donasiCommand(bot, trakteerUrl = 'https://trakteer.id/jz
             await ctx.reply(text, {
                 parse_mode: 'Markdown',
                 reply_markup: Markup.inlineKeyboard([
-                    [Markup.button.url('❤️ Donasi Sekarang', dynamicTrakteerUrl)],
+                    [Markup.button.url('❤️ Donasi Sekarang', trakteerUrl)],
                     [Markup.button.callback('🔄 Refresh', 'donasi_refresh')],
                     [Markup.button.callback('🏠 Menu Utama', 'back_to_main')],
                 ]).reply_markup,
             });
+
         } catch (err) {
             console.error('❌ [DONASI] Error memuat menu donasi:', err);
             await ctx.reply('❌ Gagal memuat halaman donasi. Coba lagi nanti.');
@@ -66,9 +64,6 @@ export default function donasiCommand(bot, trakteerUrl = 'https://trakteer.id/jz
 
     bot.action('donasi_refresh', async (ctx) => {
         await ctx.answerCbQuery('🔄 Memperbarui...');
-        const userId = ctx.from.id;
-        const dynamicTrakteerUrl = `${trakteerUrl}?tid=${userId}`;
-
         try {
             const [totalAmount, totalCount, topDonators, recent] = await Promise.all([
                 Database.getTotalDonations(),
@@ -103,7 +98,7 @@ export default function donasiCommand(bot, trakteerUrl = 'https://trakteer.id/jz
             await ctx.editMessageText(text, {
                 parse_mode: 'Markdown',
                 reply_markup: Markup.inlineKeyboard([
-                    [Markup.button.url('❤️ Donasi Sekarang', dynamicTrakteerUrl)],
+                    [Markup.button.url('❤️ Donasi Sekarang', trakteerUrl)],
                     [Markup.button.callback('🔄 Refresh', 'donasi_refresh')],
                     [Markup.button.callback('🏠 Menu Utama', 'back_to_main')],
                 ]).reply_markup,

@@ -4,7 +4,7 @@ import session from 'express-session';
 import dotenv from 'dotenv';
 import path from 'path';
 import { startBot } from './src/bot.js';
-import { createDonationRouter } from './src/routes/donation.js';
+import { createPaymentRouter } from './src/routes/payment.js';
 import adminRouter from './src/routes/admin.js';
 import donasiCommand from './src/handlers/donasi/donasi.js';
 import cookieParser from 'cookie-parser';
@@ -66,9 +66,9 @@ async function main() {
   // Simpan bot instance agar bisa diakses oleh express routes
   app.locals.bot = bot;
 
-  // Mount webhook donasi — harus sebelum app.listen
+  // Mount webhook pembayaran
   const webhookSecret = process.env.TRAKTEER_WEBHOOK_SECRET || '';
-  app.use('/donation', createDonationRouter(bot, process.env.TARGET_CHANNEL_ID, webhookSecret));
+  app.use('/payment', createPaymentRouter(bot, webhookSecret));
   donasiCommand(bot, process.env.TRAKTEER_URL || 'https://trakteer.id/jzxyzx/tip');
 
   const PORT = process.env.PORT || 3000;

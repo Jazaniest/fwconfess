@@ -23,25 +23,41 @@ export default function economyCommand(bot) {
   });
 
   const topupHandler = async (ctx) => {
+    const userId = ctx.from.id;
+    const trakteerUrl = process.env.TRAKTEER_URL || 'https://trakteer.id/jzxyzx/tip';
+
     // Untuk saat ini, hanya pesan statis.
     // Nanti bisa diintegrasikan dengan payment gateway.
     const message = `
 *➕ Top Up Koin*\n\n
-Untuk saat ini, top up koin dilakukan secara manual.\n
-Silakan hubungi admin untuk melakukan pembelian koin.
-Daftar harga:
-- 10 Koin: Rp 10.000
-- 50 Koin: Rp 45.000
-- 100 Koin: Rp 80.000
-
-Setelah melakukan pembayaran, konfirmasi ke admin dengan menyertakan bukti transfer.
+Pilih salah satu paket di bawah ini untuk melakukan top up. Kamu akan diarahkan ke halaman Trakteer.
     `;
+
+    // Daftar paket top up
+    const packages = [
+        { label: '10 Koin', price: 10000, coins: 10, item: 'koin_10' },
+        { label: '50 Koin', price: 45000, coins: 50, item: 'koin_50' },
+        { label: '100 Koin', price: 80000, coins: 100, item: 'koin_100' },
+    ];
+
+    const buttons = packages.map(pkg => {
+        // Buat URL Trakteer dengan parameter khusus untuk top up
+        const url = new URL(trakteerUrl);
+        url.searchParams.set('type', 'topup');
+        url.searchParams.set('tid', userId);
+        url.searchParams.set('item', pkg.item);
+        // Trakteer mungkin mengenali parameter 'price'
+        url.searchParams.set('price', pkg.price);
+        return [Markup.button.url(`💰 ${pkg.label} - Rp ${pkg.price / 1000}rb`, url.toString())];
+    });
+
+    buttons.push([Markup.button.callback('Kembali', 'saldo_back')]);
+
     await ctx.reply(message, {
         parse_mode: 'Markdown',
-        reply_markup: Markup.inlineKeyboard([
-            [Markup.button.url('📞 Hubungi Admin', `https://t.me/${process.env.ADMIN_USERNAME || 'jzxty'}`)],
-            [Markup.button.callback('Kembali', 'saldo_back')]
-        ]).reply_markup
+        reply_markup: {
+            inline_keyboard: buttons
+        }
     });
   };
 
