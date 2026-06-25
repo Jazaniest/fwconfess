@@ -2,7 +2,8 @@ import express from 'express';
 import expressLayouts from 'express-ejs-layouts';
 import session from 'express-session';
 import dotenv from 'dotenv';
-import path from 'path';
+import path, { resolve } from 'path';
+import { fileURLToPath } from 'url';
 import { startBot } from './src/bot.js';
 import { createPaymentRouter } from './src/routes/payment.js';
 import adminRouter from './src/routes/admin.js';
@@ -74,8 +75,8 @@ export async function main() {
 }
 
 // Cek apakah file ini dijalankan langsung oleh Node
-// Ini mencegah server berjalan otomatis saat di-impor oleh file tes
-const isMainModule = process.argv[1] === new URL(import.meta.url).pathname;
+const isMainModule = resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
+
 if (isMainModule) {
   main().catch(err => {
     console.error('Gagal memulai server:', err);

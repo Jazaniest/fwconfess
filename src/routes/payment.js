@@ -69,6 +69,15 @@ async function handleTopUp(bot, payload) {
         );
 
         if (success) {
+            // Cek dan berikan achievement donasi pertama
+            const totalDonationsFromUser = await Database.getTotalDonationCountByUserId(parseInt(userId));
+            if (totalDonationsFromUser === 1) {
+                const newAchievement = await AchievementRepo.unlockAchievement(parseInt(userId), 'FIRST_TOPUP');
+                if (newAchievement) {
+                    bot.telegram.sendMessage(parseInt(userId), `🎉 *Achievement Unlocked: ${newAchievement.icon} ${newAchievement.title}!*\n_${newAchievement.description}_`, { parse_mode: 'Markdown' });
+                }
+            }
+
             await bot.telegram.sendMessage(
                 userId,
                 `✅ *Top Up Berhasil!*\n\n${pkg.coins} koin telah ditambahkan ke dompet kamu.` +
