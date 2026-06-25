@@ -14,6 +14,8 @@ import schedule from 'node-schedule';
 import { runWeeklyReset } from './jobs/weekly-reset.js';
 import searchCommand from './commands/search.js';
 import economyCommand from './commands/economy.js';
+import rankCommand from './commands/rank.js';
+
 
 
 
@@ -58,6 +60,7 @@ export async function startBot() {
   leaderboardCommand(bot);
   searchCommand(bot);
   economyCommand(bot);
+  rankCommand(bot);
   bot.on('text', handleOriginText);
 
   bot.on('text', async (ctx, next) => {
@@ -111,6 +114,10 @@ export async function startBot() {
     {
       command: 'leaderboard',
       description: 'Lihat Papan Peringkat Mingguan'
+    },
+    {
+      command: 'rank',
+      description: 'Pusat Peningkatan Rank'
     },
     {
       command: 'donasi',

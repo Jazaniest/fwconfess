@@ -3,7 +3,7 @@ import { Database } from '../commands/database.js';
 import { formatRupiah } from '../utils/formatters.js';
 import * as LeaderboardRepo from '../repositories/leaderboard.repo.js';
 import * as EconomyRepo from '../repositories/economy.repo.js';
-import * as AchievementRepo from '../repositories/achievement.repo.js';
+import * as UserRepo from '../repositories/user.repo.js';
 
 const COIN_PACKAGES = {
     'koin_10': { coins: 10, price: 10000 },
@@ -27,6 +27,8 @@ export function createPaymentRouter(bot, webhookSecret) {
 
         if (paymentType === 'topup') {
             await handleTopUp(bot, payload);
+        } else if (paymentType === 'rank_purchase') {
+            await handleRankPurchase(bot, payload);
         } else {
             await handleDonation(bot, payload);
         }
@@ -36,6 +38,7 @@ export function createPaymentRouter(bot, webhookSecret) {
 
     return router;
 }
+
 
 
 async function handleTopUp(bot, payload) {
@@ -75,6 +78,40 @@ async function handleTopUp(bot, payload) {
         }
     } catch (error) {
         console.error('❌ [TOPUP] Gagal memproses top up:', error);
+    }
+}
+
+async function handleRankPurchase(bot, payload) {
+    console.log('💎 [RANK] Menerima webhook pembelian rank...');
+    const { query, price } = payload;
+    const userId = query?.tid;
+    const rank = query?.rank;
+
+    if (!userId || !rank) {
+        console.warn('⚠️ [RANK] Payload tidak lengkap:', payload);
+        return;
+    }
+
+    try {
+        const [ranks] = await db.query('SELECT price_idr FROM rank_confession_limits WHERE `rank` = ?', [rank]);
+        if (ranks.length === 0) {
+            return console.warn(`⚠️ [RANK] Rank '${rank}' tidak ditemukan.`);
+        }
+        const rankData = ranks[0];
+
+        if (parseInt(price) < rankData.price_idr) {
+            return console.warn(`⚠️ [RANK] Harga tidak sesuai untuk rank '${rank}'.`);
+        }
+
+        await UserRepo.updateUserRank(parseInt(userId), rank);
+
+        await bot.telegram.sendMessage(
+            userId,
+            `🎉 *Upgrade Berhasil!*\n\nSelamat, rank kamu sekarang adalah *${rank}*!`,
+            { parse_mode: 'Markdown' }
+        );
+    } catch (error) {
+        console.error(`❌ [RANK] Gagal memproses pembelian rank untuk user ${userId}:`, error);
     }
 }
 

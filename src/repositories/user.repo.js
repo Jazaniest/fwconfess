@@ -186,3 +186,10 @@ export async function updateUsername(telegramId, username) {
     [username || null, telegramId]
   );
 }
+
+export async function updateUserRank(telegramId, rank) {
+  await db.query(
+    'UPDATE `users` SET `rank` = ? WHERE `telegram_id` = ?',
+    [rank, telegramId]
+  );
+}
