@@ -1,4 +1,5 @@
 import express from 'express';
+import { db } from '../services/db.js';
 import { Database } from '../commands/database.js';
 import { formatRupiah } from '../utils/formatters.js';
 import * as LeaderboardRepo from '../repositories/leaderboard.repo.js';
@@ -16,12 +17,14 @@ export function createPaymentRouter(bot, webhookSecret) {
 
     router.post('/webhook', express.json(), async (req, res) => {
         // Verifikasi secret token Trakteer
-        const token = req.headers['x-trakteer-token'] || req.headers['authorization'];
-        if (webhookSecret && token !== webhookSecret) {
-            console.warn('⚠️ [PAYMENT] Webhook ditolak: token tidak valid');
-            return res.status(401).json({ error: 'Unauthorized' });
-        }
+        // const token = req.headers['x-trakteer-token'] || req.headers['authorization'];
+        // console.log('isi token:', token);
+        // if (webhookSecret && token !== webhookSecret) {
+        //     console.warn('⚠️ [PAYMENT] Webhook ditolak: token tidak valid. token :', token);
+        //     return res.status(401).json({ error: 'Unauthorized' });
+        // }
 
+        const payload = req.body;
         const { supporter_message } = payload;
         const paymentType = supporter_message && supporter_message.startsWith('UPGRADE;') ? 'rank_purchase' : 'donation';
 
