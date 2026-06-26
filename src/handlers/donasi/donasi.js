@@ -40,7 +40,7 @@ export default function donasiCommand(bot, trakteerUrl = 'https://trakteer.id/jz
             await ctx.reply(text, {
                 parse_mode: 'Markdown',
                 reply_markup: Markup.inlineKeyboard([
-                    [Markup.button.url('❤️ Donasi Sekarang', trakteerUrl)],
+                    [Markup.button.url('❤️ Donasi Sekarang', `${trakteerUrl}?step=2`)],
                     [Markup.button.callback('🔄 Refresh', 'donasi_refresh')],
                     [Markup.button.callback('🏠 Menu Utama', 'back_to_main')],
                 ]).reply_markup,
@@ -98,7 +98,7 @@ export default function donasiCommand(bot, trakteerUrl = 'https://trakteer.id/jz
             await ctx.editMessageText(text, {
                 parse_mode: 'Markdown',
                 reply_markup: Markup.inlineKeyboard([
-                    [Markup.button.url('❤️ Donasi Sekarang', trakteerUrl)],
+                    [Markup.button.url('❤️ Donasi Sekarang', `${trakteerUrl}?step=2`)],
                     [Markup.button.callback('🔄 Refresh', 'donasi_refresh')],
                     [Markup.button.callback('🏠 Menu Utama', 'back_to_main')],
                 ]).reply_markup,

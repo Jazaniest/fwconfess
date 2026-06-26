@@ -38,10 +38,12 @@ export default function rankCommand(bot) {
 
             const buttons = ranks.map(rank => {
                 const trakteerUrl = new URL(process.env.TRAKTEER_URL);
-                trakteerUrl.searchParams.set('type', 'rank_purchase');
-                trakteerUrl.searchParams.set('tid', userId);
-                trakteerUrl.searchParams.set('rank', rank.rank);
-                trakteerUrl.searchParams.set('price', rank.price_idr);
+                const quantity = rank.price_idr / 1000;
+                const supporterMessage = `UPGRADE;${rank.rank};${userId}`;
+
+                trakteerUrl.searchParams.set('quantity', quantity);
+                trakteerUrl.searchParams.set('supporter_message', supporterMessage);
+                trakteerUrl.searchParams.set('step', '2');
 
                 return [
                     Markup.button.callback(`Beli ${rank.rank} (${rank.price_coins} 🪙)`, `buy_rank_coin_${rank.rank}`),

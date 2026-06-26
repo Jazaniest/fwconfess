@@ -22,12 +22,10 @@ export function createPaymentRouter(bot, webhookSecret) {
             return res.status(401).json({ error: 'Unauthorized' });
         }
 
-        const payload = req.body;
-        const paymentType = payload.query?.type;
+        const { supporter_message } = payload;
+        const paymentType = supporter_message && supporter_message.startsWith('UPGRADE;') ? 'rank_purchase' : 'donation';
 
-        if (paymentType === 'topup') {
-            await handleTopUp(bot, payload);
-        } else if (paymentType === 'rank_purchase') {
+        if (paymentType === 'rank_purchase') {
             await handleRankPurchase(bot, payload);
         } else {
             await handleDonation(bot, payload);
@@ -41,63 +39,22 @@ export function createPaymentRouter(bot, webhookSecret) {
 
 
 
-async function handleTopUp(bot, payload) {
-    console.log('💰 [TOPUP] Menerima webhook top up...');
-    const { transaction_id, query, price } = payload;
-    const userId = query?.tid;
-    const item = query?.item;
-
-    if (!userId || !item || !COIN_PACKAGES[item]) {
-        console.warn('⚠️ [TOPUP] Payload tidak lengkap atau item tidak valid:', payload);
-        return;
-    }
-
-    const pkg = COIN_PACKAGES[item];
-    // Validasi harga untuk keamanan tambahan
-    if (parseInt(price) < pkg.price) {
-        console.warn(`⚠️ [TOPUP] Harga tidak sesuai! Diharapkan: ${pkg.price}, Diterima: ${price}`);
-        return;
-    }
-
-    try {
-        const success = await EconomyRepo.addCoins(
-            parseInt(userId),
-            pkg.coins,
-            'purchase',
-            `Top up paket ${item}`,
-            transaction_id
-        );
-
-        if (success) {
-            // Cek dan berikan achievement donasi pertama
-            const totalDonationsFromUser = await Database.getTotalDonationCountByUserId(parseInt(userId));
-            if (totalDonationsFromUser === 1) {
-                const newAchievement = await AchievementRepo.unlockAchievement(parseInt(userId), 'FIRST_TOPUP');
-                if (newAchievement) {
-                    bot.telegram.sendMessage(parseInt(userId), `🎉 *Achievement Unlocked: ${newAchievement.icon} ${newAchievement.title}!*\n_${newAchievement.description}_`, { parse_mode: 'Markdown' });
-                }
-            }
-
-            await bot.telegram.sendMessage(
-                userId,
-                `✅ *Top Up Berhasil!*\n\n${pkg.coins} koin telah ditambahkan ke dompet kamu.` +
-                `\n\nTerima kasih telah mendukung kami!`,
-                { parse_mode: 'Markdown' }
-            );
-        }
-    } catch (error) {
-        console.error('❌ [TOPUP] Gagal memproses top up:', error);
-    }
-}
-
 async function handleRankPurchase(bot, payload) {
     console.log('💎 [RANK] Menerima webhook pembelian rank...');
-    const { query, price } = payload;
-    const userId = query?.tid;
-    const rank = query?.rank;
+    const { supporter_message, price } = payload;
+
+    // Format: UPGRADE;{RANK_NAME};{USER_ID}
+    const parts = supporter_message.split(';');
+    if (parts.length !== 3 || parts[0] !== 'UPGRADE') {
+        console.warn('⚠️ [RANK] Format supporter_message tidak valid:', supporter_message);
+        return;
+    }
+
+    const rank = parts[1];
+    const userId = parts[2];
 
     if (!userId || !rank) {
-        console.warn('⚠️ [RANK] Payload tidak lengkap:', payload);
+        console.warn('⚠️ [RANK] Payload (dari message) tidak lengkap:', payload);
         return;
     }
 
@@ -108,8 +65,10 @@ async function handleRankPurchase(bot, payload) {
         }
         const rankData = ranks[0];
 
-        if (parseInt(price) < rankData.price_idr) {
-            return console.warn(`⚠️ [RANK] Harga tidak sesuai untuk rank '${rank}'.`);
+        // Harga dari webhook adalah total, quantity-nya adalah harga / 1000
+        const expectedPrice = rankData.price_idr;
+        if (parseInt(price) < expectedPrice) {
+            return console.warn(`⚠️ [RANK] Harga tidak sesuai untuk rank '${rank}'. Diharapkan: ${expectedPrice}, Diterima: ${price}`);
         }
 
         await UserRepo.updateUserRank(parseInt(userId), rank);
