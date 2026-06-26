@@ -45,6 +45,9 @@ export class Database {
   static updateOrigin            = UserRepo.updateOrigin;
   static updateGender            = UserRepo.updateGender;
   static updateUsername          = UserRepo.updateUsername;
+  static recordReferralPayout    = UserRepo.recordReferralPayout;
+  static getCoFounders           = UserRepo.getCoFounders;
+  static setUserCoFounderStatus  = UserRepo.setUserCoFounderStatus;
   static getActiveUsersToday     = UserRepo.getActiveUsersToday;
   static getBannedUsersCount     = UserRepo.getBannedUsersCount;
 
@@ -107,6 +110,9 @@ export class Database {
   static setConfig          = ConfigRepo.setConfig;
   static getAllRankLimits   = ConfigRepo.getAllRankLimits;
   static updateRankLimit    = ConfigRepo.updateRankLimit;
+  static updateRankPrices   = ConfigRepo.updateRankPrices;
+  static getAllReferralRewards = ConfigRepo.getAllReferralRewards;
+  static updateReferralReward = ConfigRepo.updateReferralReward;
   static getActiveRanks     = ConfigRepo.getActiveRanks;
   static saveDonation       = ConfigRepo.saveDonation;
   static getTotalDonations  = ConfigRepo.getTotalDonations;

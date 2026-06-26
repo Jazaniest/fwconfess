@@ -21,6 +21,9 @@ export async function handleAdminSettings(ctx) {
             { text: '💡 Toggle Fitur', callback_data: 'admin_feature_flags' }
           ],
           [
+            { text: '🤝 Referral', callback_data: 'admin_referral_settings' }
+          ],
+          [
             { text: '🏠 Kembali', callback_data: 'back_to_admin' }
           ]
         ]
@@ -35,7 +38,8 @@ async function getFeatureFlagMenu(ctx) {
     const keys = [
         'maintenance_mode_enabled', 'feature_leaderboard_enabled',
         'feature_achievements_enabled', 'feature_superhit_enabled',
-        'feature_rank_purchase_enabled', 'feature_tagging_enabled'
+        'feature_rank_purchase_enabled', 'feature_tagging_enabled',
+        'feature_referral_enabled',
     ];
 
     let text = '💡 *Toggle Fitur & Mode Pemeliharaan*\n\nKlik tombol untuk mengaktifkan/menonaktifkan.\n\n';
@@ -231,6 +235,7 @@ export async function handleAdminRankSettings(ctx) {
         inline_keyboard: [
           [{ text: isEnabled ? '🔴 Nonaktifkan Rank' : '🟢 Aktifkan Rank', callback_data: 'admin_rank_toggle' }],
           [{ text: '⚙️ Atur Limit per Rank', callback_data: 'admin_rank_limits' }],
+          [{ text: '💰 Ubah Harga Rank', callback_data: 'admin_rank_prices' }],
           [{ text: '👑 Promote User', callback_data: 'admin_promote_user' }],
           [{ text: '🏠 Kembali', callback_data: 'admin_settings' }]
         ]
@@ -289,9 +294,45 @@ export async function handleAdminRankEdit(ctx, rank) {
           [{ text: '✏️ Limit Confess', callback_data: `admin_rank_setlimit_${rank}_confess` }],
           [{ text: '✏️ Limit Hit Me', callback_data: `admin_rank_setlimit_${rank}_hitme` }],
           [{ text: '✏️ Limit Show Me', callback_data: `admin_rank_setlimit_${rank}_showme` }],
-          [{ text: '🔙 Kembali', callback_data: 'admin_rank_limits' }]
+          [{ text: '🔙 Kembali', callback_data: 'admin_rank_settings' }]
         ]
       }
+    }
+  );
+}
+
+export async function handleAdminRankPrices(ctx) {
+  const ranks = await Database.getAllRankLimits();
+  let text = `💰 *Harga Rank*\n\n`;
+  ranks.forEach(r => {
+    if (r.price_coins > 0) {
+      text += `*${r.rank}*: ${r.price_coins} 🪙 (Rp ${r.price_idr.toLocaleString('id-ID')})\n`;
+    }
+  });
+  text += `\n_Pilih rank untuk mengubah harga:_`;
+
+  const buttons = ranks
+    .filter(r => r.price_coins > 0)
+    .map(r => ([{
+      text: `✏️ Ubah ${r.rank}`,
+      callback_data: `admin_rank_price_edit_${r.rank}`
+  }]));
+  buttons.push([{ text: '🏠 Kembali', callback_data: 'admin_rank_settings' }]);
+
+  await ctx.editMessageText(text, {
+    parse_mode: 'Markdown',
+    reply_markup: { inline_keyboard: buttons }
+  });
+}
+
+export async function handleAdminRankEditPrice(ctx, rank, adminInputState) {
+  adminInputState.set(ctx.from.id, { action: 'set_rank_price', rank });
+
+  await ctx.editMessageText(
+    `✏️ *Ubah Harga — Rank: ${rank}*\n\nKirimkan harga baru dalam *koin*.\nContoh: \`100\`\n\n_Harga dalam Rupiah akan diatur otomatis (koin x 1000)._\n\n_Ketik /cancel untuk membatalkan_`,
+    {
+      parse_mode: 'Markdown',
+      reply_markup: { inline_keyboard: [[{ text: '❌ Batal', callback_data: `admin_rank_prices` }]] }
     }
   );
 }
@@ -345,4 +386,137 @@ export async function handleAdminDoPromote(ctx, targetId, newRank) {
       reply_markup: { inline_keyboard: [[{ text: '🔙 Kembali', callback_data: 'admin_rank_settings' }]] }
     }
   );
+}
+
+// ─── Referral Settings ──────────────────────────────────────────────────────
+
+export async function handleAdminReferralSettings(ctx) {
+  const isEnabled = await Database.getConfig('feature_referral_enabled', '0') === '1';
+
+  const text = `🤝 *Pengaturan Referral*\n\nStatus saat ini: *${isEnabled ? '✅ AKTIF' : '❌ NONAKTIF'}*`;
+  const buttons = [
+    [{ text: isEnabled ? '🔴 Nonaktifkan Fitur' : '🟢 Aktifkan Fitur', callback_data: 'admin_ref_toggle_feature' }],
+    [{ text: '💰 Ubah Reward Publik', callback_data: 'admin_ref_rewards_public' }],
+    [{ text: '👑 Ubah Reward Co-founder', callback_data: 'admin_ref_reward_cofounder' }],
+    [{ text: '👥 Kelola Co-founder', callback_data: 'admin_ref_manage_cofounder' }],
+    [{ text: '🏠 Kembali', callback_data: 'admin_settings' }]
+  ];
+
+  await ctx.editMessageText(text, {
+    parse_mode: 'Markdown',
+    reply_markup: { inline_keyboard: buttons }
+  });
+}
+
+export async function handleAdminReferralToggle(ctx) {
+  await ctx.answerCbQuery();
+  const current = await Database.getConfig('feature_referral_enabled', '0');
+  const newValue = current === '1' ? '0' : '1';
+  await Database.setConfig('feature_referral_enabled', newValue);
+  await ctx.answerCbQuery(`Fitur referral ${newValue === '1' ? 'diaktifkan' : 'dinonaktifkan'}`);
+  await handleAdminReferralSettings(ctx); // Refresh menu
+}
+
+export async function handleAdminRefRewardsPublic(ctx) {
+  await ctx.answerCbQuery();
+  const rewards = await Database.getAllReferralRewards();
+  let text = '💰 *Ubah Reward Referral Publik*\n\n';
+  rewards.sort((a,b) => a.level - b.level).forEach(r => {
+    text += `Level ${r.level}: *${r.reward_amount} koin*\n`;
+  });
+  text += '\n_Pilih level untuk diubah:_';
+
+  const buttons = rewards.map(r => ([{
+    text: `✏️ Level ${r.level} (${r.reward_amount} koin)`,
+    callback_data: `admin_ref_edit_public_${r.level}`
+  }]));
+  buttons.push([{ text: '🔙 Kembali', callback_data: 'admin_referral_settings' }]);
+
+  await ctx.editMessageText(text, {
+    parse_mode: 'Markdown',
+    reply_markup: { inline_keyboard: buttons }
+  });
+}
+
+export async function handleAdminRefEditPublicReward(ctx, level, adminInputState) {
+  await ctx.answerCbQuery();
+  adminInputState.set(ctx.from.id, { action: 'set_ref_reward_public', level });
+  await ctx.editMessageText(
+    `✏️ *Ubah Reward Level ${level}*\n\nKirimkan jumlah koin baru.\nContoh: \`0.5\`\n\n_Ketik /cancel untuk membatalkan_`,
+    {
+      parse_mode: 'Markdown',
+      reply_markup: { inline_keyboard: [[{ text: '❌ Batal', callback_data: 'admin_ref_rewards_public' }]] }
+    }
+  );
+}
+
+export async function handleAdminRefRewardCoFounder(ctx, adminInputState) {
+  await ctx.answerCbQuery();
+  const currentReward = await Database.getConfig('referral_cofounder_reward', '1');
+  adminInputState.set(ctx.from.id, { action: 'set_ref_reward_cofounder' });
+  await ctx.editMessageText(
+    `👑 *Ubah Reward Co-founder*\n\nReward saat ini: *${currentReward} koin* per pendaftaran baru di bawahnya.\n\nKirimkan jumlah koin baru.\nContoh: \`1.5\`\n\n_Ketik /cancel untuk membatalkan_`,
+    {
+      parse_mode: 'Markdown',
+      reply_markup: { inline_keyboard: [[{ text: '❌ Batal', callback_data: 'admin_referral_settings' }]] }
+    }
+  );
+}
+
+export async function handleAdminManageCoFounder(ctx) {
+    await ctx.answerCbQuery();
+    const cofounders = await Database.getCoFounders();
+    let text = '👥 *Kelola Co-founder*\n\nDaftar co-founder saat ini:\n';
+    if (cofounders.length > 0) {
+        cofounders.forEach(cf => {
+            text += `• \`${cf.telegram_id}\` (${cf.username || 'tanpa username'})\n`;
+        });
+    } else {
+        text += '_Tidak ada co-founder yang terdaftar._\n';
+    }
+
+    const buttons = [
+        [{ text: '➕ Tambah Co-founder', callback_data: 'admin_ref_add_cofounder' }],
+        [{ text: '➖ Hapus Co-founder', callback_data: 'admin_ref_remove_cofounder' }],
+        [{ text: '🔙 Kembali', callback_data: 'admin_referral_settings' }]
+    ];
+
+    await ctx.editMessageText(text, {
+        parse_mode: 'Markdown',
+        reply_markup: { inline_keyboard: buttons }
+    });
+}
+
+export async function handleAdminAddCoFounder(ctx, adminInputState) {
+    await ctx.answerCbQuery();
+    adminInputState.set(ctx.from.id, { action: 'add_cofounder' });
+    await ctx.editMessageText(
+        '➕ *Tambah Co-founder*\n\nKirimkan ID Telegram user yang ingin dijadikan co-founder.',
+        {
+            parse_mode: 'Markdown',
+            reply_markup: { inline_keyboard: [[{ text: '❌ Batal', callback_data: 'admin_ref_manage_cofounder' }]] }
+        }
+    );
+}
+
+export async function handleAdminRemoveCoFounder(ctx) {
+    await ctx.answerCbQuery();
+    const cofounders = await Database.getCoFounders();
+    if (cofounders.length === 0) {
+        return ctx.editMessageText(
+            'ℹ️ Tidak ada co-founder untuk dihapus.',
+            { reply_markup: { inline_keyboard: [[{ text: '🔙 Kembali', callback_data: 'admin_ref_manage_cofounder' }]] } }
+        );
+    }
+    let text = '➖ *Hapus Co-founder*\n\nPilih co-founder yang ingin dihapus statusnya:';
+    const buttons = cofounders.map(cf => ([{
+        text: `🗑️ ${cf.username || cf.telegram_id}`,
+        callback_data: `admin_ref_remove_confirm_${cf.telegram_id}`
+    }]));
+    buttons.push([{ text: '🔙 Kembali', callback_data: 'admin_ref_manage_cofounder' }]);
+
+    await ctx.editMessageText(text, {
+        parse_mode: 'Markdown',
+        reply_markup: { inline_keyboard: buttons }
+    });
 }

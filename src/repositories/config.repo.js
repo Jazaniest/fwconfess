@@ -51,6 +51,14 @@ export async function updateRankLimit(rank, actionType, maxCount, isActive) {
   );
 }
 
+export async function updateRankPrices(rank, priceCoins, priceIdr) {
+  await db.query(
+    'UPDATE `rank_confession_limits` SET `price_coins` = ?, `price_idr` = ? WHERE `rank` = ?',
+    [priceCoins, priceIdr, rank]
+  );
+}
+
+
 export async function getActiveRanks() {
   const [rows] = await db.query(
     `SELECT \`rank\`, \`max_count\`, \`hitme_max_count\`, \`showme_max_count\`
@@ -60,6 +68,18 @@ export async function getActiveRanks() {
     ['member']
   );
   return rows;
+}
+
+export async function getAllReferralRewards() {
+  const [rows] = await db.query('SELECT * FROM `referral_rewards`');
+  return rows;
+}
+
+export async function updateReferralReward(level, amount) {
+  await db.query(
+    'UPDATE `referral_rewards` SET `reward_amount` = ? WHERE `level` = ?',
+    [amount, level]
+  );
 }
 
 // ─── Donations ──────────────────────────────────────────────────────────────

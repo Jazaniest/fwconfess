@@ -1,6 +1,8 @@
 import { db } from '../services/db.js'
 import { Markup } from 'telegraf'
 import { privateChatOnly } from '../middleware/private-chat-only.js';
+import { processReferralRewards } from '../services/referral.service.js';
+
 
 
 /**
@@ -104,16 +106,26 @@ export default function registerCommand(bot) {
 
     try {
       const username = ctx.from.username || null;
-      await db.query(
-        'INSERT INTO `users` (`telegram_id`, `username`, `gender`, `origin`, `rank`, `registered_at`) VALUES (?, ?, ?, ?, ?, NOW())',
-        [telegram_id, username, gender, origin, 'member']
-      )
+      const referrerId = ctx.session.referrerId || null; // Ambil referrerId dari session
 
-      ctx.session.registration.done = true
-      return ctx.reply('Pendaftaran berhasil! Kamu dapat mengirim menfess di /start.')
+      await db.query(
+        'INSERT INTO `users` (`telegram_id`, `username`, `gender`, `origin`, `rank`, `referrer_id`, `registered_at`) VALUES (?, ?, ?, ?, ?, ?, NOW())',
+        [telegram_id, username, gender, origin, 'member', referrerId]
+      );
+
+      ctx.session.registration.done = true;
+      if (referrerId) {
+        delete ctx.session.referrerId; // Hapus dari session setelah digunakan
+      }
+
+      // Panggil proses referral reward di background (tidak perlu menunggu)
+      processReferralRewards({ telegram_id, referrer_id: referrerId })
+          .catch(e => console.error(`[REFERRAL] Background process error: ${e.message}`));
+
+      return ctx.reply('Pendaftaran berhasil! Kamu dapat mengirim menfess di /start.');
     } catch (error) {
-      console.error('Error inserting user:', error)
-      return ctx.reply('Gagal mendaftar. Silakan coba lagi nanti.')
+      console.error('Error inserting user:', error);
+      return ctx.reply('Gagal mendaftar. Silakan coba lagi nanti.');
     }
   }
 

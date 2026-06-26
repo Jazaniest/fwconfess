@@ -37,6 +37,17 @@ export default function startCommand(bot) {
     const userId = ctx.from.id;
     console.log(`🚀 Start command from user: ${userId} (${ctx.from.first_name})`);
 
+    // --- LOGIKA REFERRAL ---
+    const payload = ctx.startPayload;
+    if (payload) {
+      const referrerId = parseInt(payload.trim(), 10);
+      if (!isNaN(referrerId) && referrerId !== userId) { // Pastikan tidak mereferensikan diri sendiri
+        ctx.session.referrerId = referrerId;
+        console.log(`🔗 Referral code detected: ${referrerId} for new user ${userId}`);
+      }
+    }
+    // -----------------------
+
     if (adminSystem.isAdmin(userId)) {
       console.log('👑 Admin detected, showing admin menu');
       await adminSystem.showAdminMenu(ctx);

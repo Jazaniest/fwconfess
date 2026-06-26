@@ -193,3 +193,25 @@ export async function updateUserRank(telegramId, rank) {
     [rank, telegramId]
   );
 }
+
+export async function recordReferralPayout(recipientId, newUserId, level, rewardAmount) {
+  await db.query(
+    'INSERT INTO `referral_payouts` (`recipient_id`, `new_user_id`, `level`, `reward_amount`) VALUES (?, ?, ?, ?)',
+    [recipientId, newUserId, level, rewardAmount]
+  );
+}
+
+export async function getCoFounders() {
+  const [rows] = await db.query(
+    'SELECT `telegram_id`, `username` FROM `users` WHERE `is_cofounder` = 1'
+  );
+  return rows;
+}
+
+export async function setUserCoFounderStatus(userId, status) {
+  const isCoFounder = status ? 1 : 0;
+  await db.query(
+    'UPDATE `users` SET `is_cofounder` = ? WHERE `telegram_id` = ?',
+    [isCoFounder, userId]
+  );
+}
