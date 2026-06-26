@@ -69,11 +69,6 @@ export async function startBot() {
   bot.on('text', handleOriginText);
 
   bot.on('text', async (ctx, next) => {
-    // 0. Proses Tag Menfess
-    if (ctx.session?.pendingConfession?.text) {
-      if (confess.handleTagText) return confess.handleTagText(ctx);
-    }
-
     // 1. Proses registrasi
     if (ctx.session?.registration?.gender && !ctx.session?.registration?.done) {
       if (register.handleRegisterText) return register.handleRegisterText(ctx, next);

@@ -77,16 +77,6 @@ export function createConfessionHandler(pendingMap, targetChannelId, commentSyst
       // Hapus dari pending setelah dapat data
       pending.delete(userId);
 
-      if (!text.includes('#fwconfess')) {
-        // Kembalikan user ke pending karena tag salah
-        pending.set(userId, { timestamp: now, user });
-        return ctx.reply(
-          '❌ Tag *#fwconfess* tidak ditemukan.\n\n' +
-          'Tambahkan tag tersebut agar confession dapat dipublish.\n\n' +
-          '💡 Ketik confession kamu lagi dengan tag #fwconfess',
-          { parse_mode: 'Markdown' }
-        );
-      }
 
       if (text.length > 4000) {
         pending.set(userId, { timestamp: now, user });
@@ -96,15 +86,88 @@ export function createConfessionHandler(pendingMap, targetChannelId, commentSyst
         );
       }
 
-      // Simpan menfess sementara dan minta tag
-      ctx.session.pendingConfession = { text };
-      return ctx.reply(
-        '👍 Menfess kamu diterima. Sekarang, ingin menambahkan tag? (Maksimal 3)\n\n' +
-        'Ketik tag kamu, pisahkan dengan koma. Contoh: `#curhat, #relationship`\n\n' +
-        'Ketik `-` atau lewati jika tidak ingin menambahkan tag.',
-        { parse_mode: 'Markdown' }
-      );
+      // Simpan menfess dan langsung proses
+      const confessionText = ctx.message.text;
 
+      // Ekstrak tags dari teks confession
+      const tags = (confessionText.match(/#\w+/g) || []).slice(0, 3);
+
+      try {
+        // Cek rate limit
+        const rlCfg = await getRateLimitConfig(userId);
+        const recentCount = await Database.countRecentConfessions(userId, rlCfg.windowMs);
+        if (recentCount >= rlCfg.maxCount) {
+          const nextTime = await Database.getNextConfessionTime(userId, rlCfg.windowMs);
+          const msg = renderMsg(rlCfg.msgHit, {
+            count: recentCount,
+            hours: rlCfg.windowHours,
+            next_time: nextTime,
+          });
+          return ctx.reply(msg, { parse_mode: 'Markdown' });
+        }
+
+        const user = await Database.getUserById(userId);
+        const confessionMessage = formatConfessionMessage(confessionText, user);
+
+        // Hapus tag dari pesan utama agar tidak duplikat jika user sudah menyertakannya
+        const finalMessageBody = confessionText.replace(/#\w+/g, '').trim();
+        const finalMessage = `${formatConfessionMessage(finalMessageBody, user)}\n\n${tags.join(' ')}`;
+
+        const commentUrl = await commentSystem.sendToDiscussionGroup(ctx, finalMessage);
+        const inlineKeyboard = commentSystem.createInlineKeyboard(commentUrl, userId);
+
+        const result = await ctx.telegram.sendMessage(targetChannelId, finalMessage, {
+          parse_mode: 'Markdown',
+          reply_markup: { inline_keyboard: inlineKeyboard }
+        });
+
+        try {
+          const buttons = [
+            [
+              showMeSystem.createShowMeButton(result.message_id)[0],
+              reportSystem.createReportButton(result.message_id)
+            ]
+          ];
+
+          if (configService.isFeatureEnabled('superhit')) {
+              buttons.push([{ text: '🌟 Super Hit (1 Koin)', callback_data: `superhit_${user.telegram_id}` }]);
+          }
+
+          inlineKeyboard.push(...buttons);
+
+          await ctx.telegram.editMessageReplyMarkup(
+            targetChannelId,
+            result.message_id,
+            null,
+            { inline_keyboard: inlineKeyboard }
+          );
+        } catch (editErr) {
+          console.error('⚠️ Gagal menambahkan tombol (confession tetap terkirim):', editErr.message);
+        }
+
+        await Database.recordConfessionSent(userId);
+        await Database.saveConfession(userId, confessionText, result.message_id, tags.join(','));
+
+        await LeaderboardRepo.recordAction(userId, 'weekly_confessions');
+
+        const totalConfessions = await Database.getTotalUserConfessions(userId);
+        if (totalConfessions === 1) {
+          await AchievementRepo.unlockAchievement(userId, 'FIRST_CONFESSION');
+           await ctx.reply('🎉 Selamat! Kamu mendapatkan achievement *Konfessor Pemula*! Lihat di /profile.');
+        } else if (totalConfessions === 10) {
+           await AchievementRepo.unlockAchievement(userId, 'TEN_CONFESSIONS');
+           await ctx.reply('🎉 Hebat! Kamu mendapatkan achievement *Mulai Terbuka*! Lihat di /profile.');
+        }
+
+        const successMessage = renderMsg(rlCfg.msgSuccess, { hours: rlCfg.windowHours });
+        await ctx.reply(successMessage, { parse_mode: 'Markdown' });
+
+      } catch (err) {
+        console.error('❌ ===== ERROR PROCESSING CONFESSION (Unified) =====');
+        console.error('👤 User:', userId);
+        console.error('💥 Error:', err);
+        await ctx.reply('❌ Terjadi kesalahan saat memproses menfess kamu.');
+      }
     } catch (err) {
       console.error('❌ ===== ERROR PROCESSING CONFESSION (Initial) =====');
       console.error('👤 User:', userId);
@@ -114,98 +177,9 @@ export function createConfessionHandler(pendingMap, targetChannelId, commentSyst
     }
   }
 
-  /**
-   * Handle input teks untuk tag confession.
-   */
-  async function handleTagText(ctx) {
-    const userId = ctx.from.id;
-    const { text: confessionText } = ctx.session.pendingConfession;
-    const tagInput = ctx.message.text;
-
-    // Hapus data sementara dari session
-    delete ctx.session.pendingConfession;
-
-    let tags = [];
-    if (tagInput.trim() !== '-') {
-      tags = tagInput.split(',')
-        .map(tag => tag.trim())
-        .filter(tag => tag.length > 1)
-        .map(tag => tag.startsWith('#') ? tag : `#${tag}`)
-        .slice(0, 3); // Ambil maksimal 3 tag
-    }
-
-    try {
-      // Cek rate limit lagi (double check)
-      const rlCfg = await getRateLimitConfig(userId);
-      const recentCount = await Database.countRecentConfessions(userId, rlCfg.windowMs);
-      if (recentCount >= rlCfg.maxCount) {
-          // ... (logika rate limit seperti sebelumnya)
-          return ctx.reply('❌ Gagal, kamu terkena rate limit.');
-      }
-
-      const user = await Database.getUserById(userId);
-      const confessionMessage = formatConfessionMessage(confessionText, user);
-      const finalMessage = `${confessionMessage}\n\n${tags.join(' ')}`;
-
-      // ... (sisa logika pengiriman, penyimpanan DB, dll. seperti sebelumnya)
-      const commentUrl = await commentSystem.sendToDiscussionGroup(ctx, finalMessage);
-      const inlineKeyboard = commentSystem.createInlineKeyboard(commentUrl, userId);
-
-      const result = await ctx.telegram.sendMessage(targetChannelId, finalMessage, {
-        parse_mode: 'Markdown',
-        reply_markup: { inline_keyboard: inlineKeyboard }
-      });
-
-      try {
-        const buttons = [
-          [
-            showMeSystem.createShowMeButton(result.message_id)[0],
-            reportSystem.createReportButton(result.message_id)
-          ]
-        ];
-
-        if (configService.isFeatureEnabled('superhit')) {
-            buttons.push([{ text: '🌟 Super Hit (1 Koin)', callback_data: `superhit_${user.telegram_id}` }]);
-        }
-
-        inlineKeyboard.push(...buttons);
-
-        await ctx.telegram.editMessageReplyMarkup(
-          targetChannelId,
-          result.message_id,
-          null,
-          { inline_keyboard: inlineKeyboard }
-        );
-      } catch (editErr) {
-        console.error('⚠️ Gagal menambahkan tombol (confession tetap terkirim):', editErr.message);
-      }
-
-      await Database.recordConfessionSent(userId);
-      await Database.saveConfession(userId, confessionText, result.message_id, tags.join(',')); // Simpan tags
-
-      await LeaderboardRepo.recordAction(userId, 'weekly_confessions');
-
-      // ... (logika achievement dan pesan sukses)
-      const totalConfessions = await Database.getTotalUserConfessions(userId);
-      if (totalConfessions === 1) {
-        // ... (unlock achievement FIRST_CONFESSION)
-      } else if (totalConfessions === 10) {
-        // ... (unlock achievement TEN_CONFESSIONS)
-      }
-
-      const successMessage = renderMsg(rlCfg.msgSuccess, { hours: rlCfg.windowHours });
-      await ctx.reply(successMessage, { parse_mode: 'Markdown' });
-
-    } catch (err) {
-        console.error('❌ ===== ERROR PROCESSING CONFESSION (Final) =====');
-        // ... (error handling)
-        await ctx.reply('❌ Terjadi kesalahan saat memproses menfess kamu.');
-    }
-  }
 
   return {
     handleConfessText,
-    handleTagText,
     getRateLimitConfig,
   };
 }

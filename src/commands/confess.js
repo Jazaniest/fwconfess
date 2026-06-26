@@ -78,22 +78,14 @@ export default function confessCommand(bot, targetChannelId) {
       pending.set(userId, { timestamp: now, user });
       console.log('📝 User added to pending list:', userId);
 
-      const instructionText = commentSystem.isCommentSystemEnabled()
-        ? '📝 *Kirim Menfess*\n\n' +
-        'Silakan ketik confession kamu. Pastikan menyertakan tag *#fwconfess*\n\n' +
+      const instructionText = '📝 *Kirim Menfess*\n\n' +
+        'Silakan ketik dan kirim langsung menfess kamu di sini.\n\n' +
+        'Kamu bisa menyertakan hingga 3 tag (contoh: `#curhat`, `#random`) langsung di dalam pesanmu, dan bot akan mendeteksinya secara otomatis.\n\n' +
         '⚠️ *Perhatian:*\n' +
-        '• Menfess akan ditampilkan dengan gender dan rank kamu\n' +
-        '• User lain bisa klik "Hit Me" untuk chat anonymous\n' +
-        '• User bisa memberikan komentar di grup diskusi\n' +
-        '• Jaga sopan santun dalam menfess\n\n' +
-        '💡 *Tips:* Ketik `/cancel` untuk membatalkan'
-        : '📝 *Kirim Menfess*\n\n' +
-        'Silakan ketik confession kamu. Pastikan menyertakan tag *#fwconfess*\n\n' +
-        '⚠️ *Perhatian:*\n' +
-        '• Menfess akan ditampilkan dengan gender dan rank kamu\n' +
-        '• User lain bisa klik "Hit Me" untuk chat anonymous\n' +
-        '• Jaga sopan santun dalam menfess\n\n' +
-        '💡 *Tips:* Ketik `/cancel` untuk membatalkan';
+        '• Menfess akan ditampilkan secara anonim, namun menyertakan gender dan rank kamu.\n' +
+        '• Pengguna lain dapat mengajakmu ngobrol via "Hit Me".\n' +
+        '• Jaga sopan santun dan patuhi aturan.\n\n' +
+        '💡 Ketik `/cancel` untuk membatalkan.';
 
       await ctx.reply(instructionText, { parse_mode: 'Markdown' });
 
