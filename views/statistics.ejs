@@ -1,47 +1,46 @@
-<% layout('layout') %>
 
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
   <div class="bg-white p-4 rounded shadow">
     <p class="text-sm text-gray-500">Total Users</p>
-    <p class="text-3xl font-bold text-blue-600"><%= stats.totalUsers %></p>
+    <p class="text-3xl font-bold text-blue-600"><%= locals.stats?.totalUsers || 0 %></p>
   </div>
   <div class="bg-white p-4 rounded shadow">
     <p class="text-sm text-gray-500">Total Menfess</p>
-    <p class="text-3xl font-bold text-purple-600"><%= stats.totalConfessions %></p>
+    <p class="text-3xl font-bold text-purple-600"><%= locals.stats?.totalConfessions || 0 %></p>
   </div>
   <div class="bg-white p-4 rounded shadow">
     <p class="text-sm text-gray-500">User Banned</p>
-    <p class="text-3xl font-bold text-red-600"><%= stats.bannedUsers %></p>
+    <p class="text-3xl font-bold text-red-600"><%= locals.stats?.bannedUsers || 0 %></p>
   </div>
   <div class="bg-white p-4 rounded shadow">
     <p class="text-sm text-gray-500">Laporan Masuk</p>
-    <p class="text-3xl font-bold text-yellow-600"><%= stats.reportsCount %></p>
+    <p class="text-3xl font-bold text-yellow-600"><%= locals.stats?.reportsCount || 0 %></p>
   </div>
 </div>
 
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
   <div class="bg-white p-4 rounded shadow">
     <p class="text-sm text-gray-500">Chat Session Aktif</p>
-    <p class="text-2xl font-bold text-green-600"><%= stats.activeChatSessions %></p>
+    <p class="text-2xl font-bold text-green-600"><%= locals.stats?.activeChatSessions || 0 %></p>
   </div>
   <div class="bg-white p-4 rounded shadow">
     <p class="text-sm text-gray-500">Pesan Anonymous</p>
-    <p class="text-2xl font-bold text-indigo-600"><%= stats.totalMessages %></p>
+    <p class="text-2xl font-bold text-indigo-600"><%= locals.stats?.totalMessages || 0 %></p>
   </div>
   <div class="bg-white p-4 rounded shadow">
     <p class="text-sm text-gray-500">Total Donasi</p>
-    <p class="text-2xl font-bold text-pink-600"><%= stats.totalDonations ? 'Rp' + Number(stats.totalDonations).toLocaleString('id-ID') : 'Rp0' %></p>
+    <p class="text-2xl font-bold text-pink-600"><%= locals.stats?.totalDonations ? 'Rp' + Number(locals.stats.totalDonations).toLocaleString('id-ID') : 'Rp0' %></p>
   </div>
   <div class="bg-white p-4 rounded shadow">
     <p class="text-sm text-gray-500">Daget Aktif</p>
-    <p class="text-2xl font-bold text-orange-600"><%= stats.activeDaget %></p>
+    <p class="text-2xl font-bold text-orange-600"><%= locals.stats?.activeDaget || 0 %></p>
   </div>
   <div class="bg-white p-4 rounded shadow">
     <p class="text-sm text-gray-500">User Baru (24h)</p>
-    <p class="text-2xl font-bold text-teal-600"><%= stats.newUsersToday %></p>
+    <p class="text-2xl font-bold text-teal-600"><%= locals.stats?.newUsersToday || 0 %></p>
   </div>
   <div class="bg-white p-4 rounded shadow">
     <p class="text-sm text-gray-500">Report Pending</p>
-    <p class="text-2xl font-bold text-amber-600"><%= stats.pendingReports %></p>
+    <p class="text-2xl font-bold text-amber-600"><%= locals.stats?.pendingReports || 0 %></p>
   </div>
 </div>

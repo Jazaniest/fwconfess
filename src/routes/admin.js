@@ -19,17 +19,17 @@ const PER_PAGE = 20;
 // ─── Nav items ─────────────────────────────────────────────────────────────────
 
 const NAV = [
-  { url: '/admin',            label: '🏠 Dashboard' },
-  { url: '/admin/users',      label: '👥 Users' },
-  { url: '/admin/confessions', label: '📝 Confessions' },
-  { url: '/admin/reports',    label: '📋 Reports' },
-  { url: '/admin/chat',       label: '💬 Chat Sessions' },
-  { url: '/admin/donations',  label: '💰 Donations' },
-  { url: '/admin/statistics', label: '📈 Statistics' },
-  { url: '/admin/broadcast',  label: '📢 Broadcast' },
-  { url: '/admin/blacklist',  label: '🚫 Blacklist' },
-  { url: '/admin/logs',       label: '📜 Logs' },
-  { url: '/admin/settings',   label: '⚙️ Settings' },
+  { url: '/admin',            label: 'Dashboard',   icon: 'grid-outline' },
+  { url: '/admin/users',      label: 'Users',       icon: 'people-outline' },
+  { url: '/admin/confessions', label: 'Confessions', icon: 'chatbox-ellipses-outline' },
+  { url: '/admin/reports',    label: 'Reports',     icon: 'shield-checkmark-outline' },
+  { url: '/admin/chat',       label: 'Chat Sessions', icon: 'chatbubbles-outline' },
+  { url: '/admin/donations',  label: 'Donations',   icon: 'wallet-outline' },
+  { url: '/admin/statistics', label: 'Statistics',  icon: 'stats-chart-outline' },
+  { url: '/admin/broadcast',  label: 'Broadcast',   icon: 'megaphone-outline' },
+  { url: '/admin/blacklist',  label: 'Blacklist',   icon: 'ban-outline' },
+  { url: '/admin/logs',       label: 'Logs',        icon: 'document-text-outline' },
+  { url: '/admin/settings',   label: 'Settings',    icon: 'options-outline' },
 ];
 
 
@@ -46,49 +46,67 @@ function requireAdmin(req, res, next) {
 
   // Jika belum terotentikasi, tampilkan form login.
   // Pastikan ada rute POST untuk menangani form ini.
+  const csrfToken = req.csrfToken();
   res.status(401).send(`
     <form method="POST" action="/admin/login" class="max-w-sm mx-auto mt-20 p-6 bg-white rounded shadow">
       <h1 class="text-xl font-bold mb-4">🔐 Admin Login</h1>
-      <input name="admin_id" type="password" class="w-full border rounded p-2 mb-3" placeholder="Admin ID" />
+      <input type="hidden" name="_csrf" value="${csrfToken}">
+      <input name="username" type="text" class="w-full border rounded p-2 mb-3" placeholder="Username" />
+      <input name="password" type="password" class="w-full border rounded p-2 mb-3" placeholder="Password" />
       <button class="w-full px-4 py-2 bg-blue-600 text-white rounded">Login</button>
     </form>
   `);
 }
 
 router.post('/login', (req, res) => {
-  const adminId = process.env.ADMIN_ID;
-  if (!adminId) {
-    console.error('FATAL: ADMIN_ID is not set in environment variables.');
+  const { username, password } = req.body;
+  const adminUsername = process.env.ADMIN_USERNAME;
+  const adminPassword = process.env.ADMIN_PASSWORD;
+
+  if (!adminUsername || !adminPassword) {
+    console.error('FATAL: ADMIN_USERNAME or ADMIN_PASSWORD is not set in environment variables.');
     return res.status(500).send('Server configuration error.');
   }
 
-  if (adminId && req.body.admin_id === adminId) {
+  if (username === adminUsername && password === adminPassword) {
     req.session.adminAuthed = true;
     return res.redirect('/admin');
   }
-  res.status(401).send('Invalid admin ID.');
+  res.status(401).send('Invalid username or password.');
 });
 
 // ─── Dashboard ─────────────────────────────────────────────────────────────────
 
 router.get('/', requireAdmin, async (req, res) => {
   try {
-    const [totalUsers, totalConfessions, recentConfessions, recentDonations] = await Promise.all([
-      UserRepo.countAllUsers(),
-      ConfessionRepo.getTotalConfessions(),
-      db.query('SELECT * FROM confessions ORDER BY created_at DESC LIMIT 5').then(r => r[0]),
-      db.query('SELECT * FROM donations ORDER BY created_at DESC LIMIT 5').then(r => r[0]),
+    // Terapkan pola safeQuery untuk memastikan tidak ada error render
+    const [
+      totalUsers,
+      totalConfessions,
+      recentConfessions,
+      recentDonations,
+    ] = await Promise.all([
+      safeQuery(UserRepo.countAllUsers(), 0, 'countAllUsers-dashboard'),
+      safeQuery(ConfessionRepo.getTotalConfessions(), 0, 'getTotalConfessions-dashboard'),
+      safeQuery(db.query('SELECT * FROM confessions ORDER BY created_at DESC LIMIT 5').then(r => r[0]), [], 'recentConfessions-dashboard'),
+      safeQuery(db.query('SELECT * FROM donations ORDER BY created_at DESC LIMIT 5').then(r => r[0]), [], 'recentDonations-dashboard'),
     ]);
+
+    // Pastikan variabel yang dikirim ke template selalu terdefinisi
     res.render('index', {
       nav: activeNav('/admin'),
       title: 'Dashboard',
-      sum: { totalUsers, totalConfessions },
-      recentConfessions,
-      recentDonations,
+      sum: {
+        totalUsers: totalUsers || 0,
+        totalConfessions: totalConfessions || 0,
+      },
+      recentConfessions: recentConfessions || [],
+      recentDonations: recentDonations || [],
     });
   } catch (error) {
-    console.error('Error loading dashboard:', error);
-    res.status(500).send('Gagal memuat dashboard.');
+    // Blok catch ini hanya untuk error tak terduga, bukan error query
+    console.error('Unexpected error loading dashboard:', error);
+    res.status(500).send('Gagal memuat dashboard karena kesalahan server.');
   }
 });
 
@@ -194,10 +212,11 @@ router.get('/chat', requireAdmin, async (req, res) => {
   try {
     const page = Math.max(0, parseInt(req.query.page) || 0);
     const offset = page * PER_PAGE;
-    const [[{ total }], sessions] = await Promise.all([
-      db.query('SELECT COUNT(*) AS total FROM chat_sessions').then(r => r[0][0]),
-      db.query('SELECT * FROM chat_sessions ORDER BY created_at DESC LIMIT ? OFFSET ?', [PER_PAGE, offset]).then(r => r[0]),
-    ]);
+
+    const totalResult = await safeQuery(db.query('SELECT COUNT(*) AS total FROM chat_sessions'), [{ total: 0 }], 'countChatSessions');
+    const total = totalResult[0]?.total || 0;
+    const sessions = await safeQuery(db.query('SELECT * FROM chat_sessions ORDER BY created_at DESC LIMIT ? OFFSET ?', [PER_PAGE, offset]).then(r => r[0]), [], 'getChatSessions');
+
     res.render('chat', {
       nav: activeNav('/admin/chat'),
       title: 'Chat Sessions',
@@ -218,15 +237,13 @@ router.get('/donations', requireAdmin, async (req, res) => {
   try {
     const page = Math.max(0, parseInt(req.query.page) || 0);
     const offset = page * PER_PAGE;
-    const [donations, totalCount] = await Promise.all([
-      ConfigRepo.getRecentDonations(PER_PAGE).then(d => d.slice(offset, offset + PER_PAGE)),
-      ConfigRepo.getTotalDonationCount(),
-    ]);
-    // Re-fetch with offset via raw query (getRecentDonations doesn't support offset)
-    const [rows] = await db.query(
+
+    const totalCount = await safeQuery(ConfigRepo.getTotalDonationCount(), 0, 'getTotalDonationCount');
+    const rows = await safeQuery(db.query(
       'SELECT * FROM donations ORDER BY created_at DESC LIMIT ? OFFSET ?',
       [PER_PAGE, offset]
-    );
+    ).then(r => r[0]), [], 'getDonationsPaginated');
+
     res.render('donations', {
       nav: activeNav('/admin/donations'),
       title: 'Donations',
@@ -243,25 +260,38 @@ router.get('/donations', requireAdmin, async (req, res) => {
 
 // ─── Statistics ────────────────────────────────────────────────────────────────
 
+// Helper untuk menjalankan query dengan aman dan memberikan nilai default jika gagal.
+async function safeQuery(promise, defaultValue = 0, name = 'Unnamed Query') {
+  try {
+    const result = await promise;
+    // Handle kasus di mana query berhasil tapi tidak mengembalikan apa-apa
+    return result === undefined || result === null ? defaultValue : result;
+  } catch (error) {
+    console.error(`Error in safeQuery for [${name}]:`, error.message);
+    return defaultValue;
+  }
+}
+
 router.get('/statistics', requireAdmin, async (req, res) => {
   try {
+    // Menggunakan safeQuery untuk setiap pengambilan data.
     const [
       totalUsers, totalConfessions, bannedUsers,
       reportsCount, chatStats, totalDonations, activeDaget,
-      newUsers,
+      newUsers, reportStats,
     ] = await Promise.all([
-      UserRepo.countAllUsers(),
-      ConfessionRepo.getTotalConfessions(),
-      UserRepo.getBannedUsersCount(),
-      ReportRepo.getTotalReports(),
-      ChatRepo.getSessionStats(),
-      ConfigRepo.getTotalDonations(),
-      db.query("SELECT COUNT(*) AS total FROM dagetan WHERE status = 'waiting'").then(r => r[0][0].total),
-      UserRepo.countNewUsers(),
+      safeQuery(UserRepo.countAllUsers(), 0, 'countAllUsers'),
+      safeQuery(ConfessionRepo.getTotalConfessions(), 0, 'getTotalConfessions'),
+      safeQuery(UserRepo.getBannedUsersCount(), 0, 'getBannedUsersCount'),
+      safeQuery(ReportRepo.getTotalReports(), 0, 'getTotalReports'),
+      safeQuery(ChatRepo.getSessionStats(), { active: 0, messages: 0 }, 'getSessionStats'),
+      safeQuery(ConfigRepo.getTotalDonations(), 0, 'getTotalDonations'),
+      safeQuery(db.query("SELECT COUNT(*) AS total FROM dagetan WHERE status = 'waiting'").then(r => r[0][0].total), 0, 'getActiveDaget'),
+      safeQuery(UserRepo.countNewUsers(), { day1: 0 }, 'countNewUsers'),
+      safeQuery(ReportRepo.getReportStats(), { pending: 0 }, 'getReportStats'),
     ]);
 
-    const reportStats = await ReportRepo.getReportStats();
-
+    // Sekarang, 'stats' dijamin memiliki semua properti yang dibutuhkan oleh EJS.
     res.render('statistics', {
       nav: activeNav('/admin/statistics'),
       title: 'Statistics',
@@ -279,8 +309,10 @@ router.get('/statistics', requireAdmin, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Error fetching statistics:', error);
-    res.status(500).send('Gagal memuat statistik.');
+    // Blok catch ini sekarang hanya akan menangani error yang sangat tidak terduga,
+    // bukan error dari query database.
+    console.error('Unexpected error in /statistics route:', error);
+    res.status(500).send('Gagal memuat statistik karena kesalahan server yang tidak terduga.');
   }
 });
 
@@ -355,10 +387,11 @@ router.get('/logs', requireAdmin, async (req, res) => {
   try {
     const page = Math.max(0, parseInt(req.query.page) || 0);
     const offset = page * PER_PAGE;
-    const [[{ total }], logs] = await Promise.all([
-      db.query('SELECT COUNT(*) AS total FROM admin_logs').then(r => r[0][0]),
-      db.query('SELECT * FROM admin_logs ORDER BY created_at DESC LIMIT ? OFFSET ?', [PER_PAGE, offset]).then(r => r[0]),
-    ]);
+
+    const totalResult = await safeQuery(db.query('SELECT COUNT(*) AS total FROM admin_logs'), [{ total: 0 }], 'countAdminLogs');
+    const total = totalResult[0]?.total || 0;
+    const logs = await safeQuery(db.query('SELECT * FROM admin_logs ORDER BY created_at DESC LIMIT ? OFFSET ?', [PER_PAGE, offset]).then(r => r[0]), [], 'getAdminLogs');
+
     res.render('logs', {
       nav: activeNav('/admin/logs'),
       title: 'Admin Logs',

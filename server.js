@@ -56,6 +56,8 @@ app.use((err, req, res, next) => {
   res.status(403).send('form tampered with');
 });
 
+let server;
+
 export async function main() {
   const bot = await startBot();
   app.locals.bot = bot;
@@ -67,7 +69,7 @@ export async function main() {
   // Hanya jalankan server jika tidak dalam mode tes
   if (process.env.NODE_ENV !== 'test') {
     const PORT = process.env.PORT || 3000;
-    app.listen(PORT, () => {
+    server = app.listen(PORT, () => {
       console.log(`🌐 Server running on port ${PORT}`);
       console.log(`🔗 Webhook pembayaran aktif di /payment/webhook`);
     });
@@ -83,3 +85,19 @@ if (isMainModule) {
     process.exit(1);
   });
 }
+
+// Menangani graceful shutdown
+const gracefulShutdown = (signal) => {
+  console.log(`\n${signal} diterima. Menutup server dengan benar...`);
+  if (server) {
+    server.close(() => {
+      console.log('✅ Server berhasil ditutup.');
+      process.exit(0);
+    });
+  } else {
+    process.exit(0);
+  }
+};
+
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
