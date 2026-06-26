@@ -103,6 +103,13 @@ export class ChatManager {
         return false;
       }
 
+      // Update last activity for both users
+      userChatData.lastActivity = Date.now();
+      const receiverChatData = this.activeChatUsers.get(receiverId);
+      if (receiverChatData) {
+        receiverChatData.lastActivity = Date.now();
+      }
+
       console.log(`Anonymous message successfully processed for session ${sessionId}`);
       return true;
 
@@ -126,13 +133,15 @@ export class ChatManager {
       this.activeChatUsers.set(hitterId, {
         sessionId: session.id,
         role: 'hitter',
-        partnerId: confessorId
+        partnerId: confessorId,
+        lastActivity: Date.now(),
       });
 
       this.activeChatUsers.set(confessorId, {
         sessionId: session.id,
         role: 'confessor',
-        partnerId: hitterId
+        partnerId: hitterId,
+        lastActivity: Date.now(),
       });
 
       console.log(`Added users to active chat map:`, {
@@ -246,12 +255,27 @@ export class ChatManager {
     try {
       console.log('Starting cleanup of inactive sessions');
       const activeSessions = await Database.getActiveSessions();
+      const now = Date.now();
+      const ONE_HOUR_MS = 60 * 60 * 1000;
 
       let cleanedUsers = 0;
       for (const [userId, chatData] of this.activeChatUsers.entries()) {
-        const sessionExists = activeSessions.some(session => 
+        const sessionExists = activeSessions.some(session =>
           session.id === chatData.sessionId && session.is_active
         );
+
+        // Cek timeout
+        if (chatData.lastActivity && (now - chatData.lastActivity > ONE_HOUR_MS)) {
+            console.log(`Session for user ${userId} has timed out. Ending session.`);
+            // Buat konteks palsu untuk memanggil endChatSession
+            const fakeCtx = {
+                reply: (msg, opts) => this.bot.telegram.sendMessage(userId, msg, opts),
+                telegram: this.bot.telegram,
+            };
+            await this.endChatSession(fakeCtx, userId);
+            cleanedUsers++;
+            continue; // Lanjut ke user berikutnya karena sesi sudah berakhir
+        }
 
         if (!sessionExists) {
           console.log('Removing inactive user from chat map:', userId);

@@ -16,7 +16,7 @@ import { privateChatOnly } from '../middleware/private-chat-only.js';
  * @param {Telegraf} bot
  * @param {string|number} targetChannelId
  */
-export default function confessCommand(bot, targetChannelId) {
+export default function confessCommand(bot, targetChannelId, chatManager) {
   if (!targetChannelId) {
     throw new Error(
       '❌ KONFIG ERROR: TARGET_CHANNEL_ID tidak di-set di environment variables!\n' +
@@ -26,7 +26,7 @@ export default function confessCommand(bot, targetChannelId) {
 
   const pending = new Map();
   const commentSystem = commentHandler(bot, process.env.DISCUSSION_GROUP_ID);
-  const showMeSystem = showMeHandler(bot);
+  const showMeSystem = showMeHandler(bot, chatManager);
   const reportSystem = reportHandler(bot, targetChannelId);
 
   const { handleConfessText, getRateLimitConfig } = createConfessionHandler(

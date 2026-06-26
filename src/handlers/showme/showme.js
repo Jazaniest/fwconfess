@@ -6,7 +6,7 @@ import { getGenderEmoji, getRankEmoji } from '../../utils/formatters.js';
  * Handler untuk fitur Show Me
  * @param {Telegraf} bot
  */
-export default function showMeHandler(bot) {
+export default function showMeHandler(bot, chatManager) {
   const pendingRequests = new Map();
   // ✅ BARU: antrian per owner. key = ownerId, value = [requestId, requestId, ...]
   const ownerQueues = new Map();
@@ -115,6 +115,10 @@ export default function showMeHandler(bot) {
 
       const messageId = ctx.match[1];
       const requesterId = ctx.from.id;
+
+      if (chatManager.isUserInChat(requesterId)) {
+        return ctx.answerCbQuery('❌ Kamu sedang dalam sesi chat lain. Selesaikan dulu!', true);
+      }
 
       const requesterUser = await Database.getUserById(requesterId);
       if (!requesterUser) {
@@ -260,7 +264,7 @@ export default function showMeHandler(bot) {
       const approverDataMessage =
         `✅ *PERMINTAAN SHOW ME DISETUJUI\\!*\n\n` +
         `👤 *Data Pengirim Menfess:*\n` +
-        `• Username: ${username ? '@' + username : 'Tidak tersedia'}\n` +
+        `• Username: ${username ? '@' + escapeMarkdownV2(username) : 'Tidak tersedia'}\n` +
         `• Gender: ${getGenderEmoji(approverDbData.gender)} ${approverDbData.gender || 'Unknown'}\n` +
         `• Rank: ${getRankEmoji(approverDbData.rank)} ${approverDbData.rank || 'Member'}\n` +
         `• Origin: 📍 ${approverDbData.origin || 'Unknown'}\n\n` +

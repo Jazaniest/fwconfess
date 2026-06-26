@@ -36,6 +36,11 @@ export default function hitMeCommand(bot) {
       const confessionAuthorId = parseInt(ctx.match[1]);
       const hitterId = ctx.from.id;
 
+      if (chatManager.isUserInChat(hitterId)) {
+        return ctx.answerCbQuery('❌ Kamu sedang dalam sesi chat lain. Selesaikan dulu!', true);
+      }
+
+
       console.log('=== HIT ME CLICKED ===');
       console.log('Hit Me clicked by:', hitterId, 'for confession by:', confessionAuthorId);
       console.log('Chat type:', ctx.chat.type);
@@ -67,6 +72,9 @@ export default function hitMeCommand(bot) {
   // Handler untuk tombol Super Hit
   bot.action(/^superhit_(\d+)$/, async (ctx) => {
     const hitterId = ctx.from.id;
+    if (chatManager.isUserInChat(hitterId)) {
+      return ctx.answerCbQuery('❌ Kamu sedang dalam sesi chat lain. Selesaikan dulu!', true);
+    }
     await ctx.answerCbQuery();
 
     try {
@@ -419,5 +427,5 @@ function setupCleanup(chatManager, requestManager) {
     } catch (error) {
       console.error('Error in cleanup:', error);
     }
-  }, 30 * 60 * 1000); // Setiap 30 menit
+  }, 5 * 60 * 1000); // Setiap 5 menit
 }
