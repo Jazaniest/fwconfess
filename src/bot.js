@@ -18,16 +18,10 @@ import searchCommand from './commands/search.js';
 import economyCommand from './commands/economy.js';
 import rankCommand from './commands/rank.js';
 
-
-
-
-
-
 dotenv.config();
 
 export async function startBot() {
-  await configService.init(); // Muat konfigurasi ke cache
-
+  await configService.init();
   const token = process.env.BOT_TOKEN;
   if (!token) {
     console.error('Error: BOT_TOKEN tidak ditemukan di environment variables.');
@@ -37,46 +31,40 @@ export async function startBot() {
   const bot = new Telegraf(token);
   bot.use(session({ defaultSession: () => ({}) }));
   bot.use(maintenanceMode());
+  bot.use(createBanMiddleware());
+  bot.use(badgeEnforcer());
 
   bot.catch((err, ctx) => {
     console.error(`❌ Bot error for update ${ctx.update?.update_id}:`, err.message);
   });
 
-  bot.use((ctx, next) => {
-    if (ctx.message && ctx.message.text) {
-      console.log('📝 [GLOBAL TEXT]', ctx.from.id, '->', ctx.message.text);
-    }
-    return next();
-  });
-
-  // ─── Ban middleware global ────────────────────────────────────────────────────
-  bot.use(createBanMiddleware());
-  bot.use(badgeEnforcer());
-
-  // Daftar semua command
+  // Registrasi semua command dan handler
+  const hitMe = hitMeCommand(bot);
+  const { chatManager } = hitMe;
   startCommand(bot);
   const register = registerCommand(bot);
-  const confess = confessCommand(bot, process.env.TARGET_CHANNEL_ID);
+  const confess = confessCommand(bot, process.env.TARGET_CHANNEL_ID, chatManager);
   const { handleProfileText: handleOriginText } = profileCommand(bot);
-  const hitMe = hitMeCommand(bot);
-  await hitMe.chatManager.syncSessionsWithDatabase();
-  const daget = dagetCommand(bot, process.env.TARGET_CHANNEL_ID);
-  const donasi = donasiCommand(bot, process.env.TRAKTEER_URL);
+  const daget = dagetCommand(bot, process.env.TARGET_CHANNEL_ID, process.env.DISCUSSION_GROUP_ID);
+  donasiCommand(bot, process.env.TRAKTEER_URL);
   leaderboardCommand(bot);
   searchCommand(bot);
   economyCommand(bot);
   rankCommand(bot);
   bot.on('text', handleOriginText);
 
+  // Handler teks global untuk alur percakapan
   bot.on('text', async (ctx, next) => {
-    // 1. Proses registrasi
+    if (chatManager.isUserInChat(ctx.from.id)) {
+      return chatManager.sendAnonymousMessage(ctx, ctx.from.id, ctx.message.text);
+    }
     if (ctx.session?.registration?.gender && !ctx.session?.registration?.done) {
-      if (register.handleRegisterText) return register.handleRegisterText(ctx, next);
+      return register.handleRegisterText(ctx, next);
     }
 
     // 2. Proses confession
     if (confess.isUserPending && confess.isUserPending(ctx.from.id)) {
-      if (confess.handleConfessText) return confess.handleConfessText(ctx, next);
+      return confess.handleConfessText(ctx, next);
     }
 
     // 3. Proses daget session
@@ -84,12 +72,8 @@ export async function startBot() {
       const handled = await daget.handleDagetText(ctx);
       if (handled) return;
     }
-
-    // 4. Proses anonymous chat
-    if (hitMe.chatManager && hitMe.chatManager.isUserInChat(ctx.from.id)) {
-      if (ctx.chat.type !== 'private') return next();
-      return hitMe.chatManager.sendAnonymousMessage(ctx, ctx.from.id, ctx.message.text);
-    }
+    const originHandled = await handleOriginText(ctx, () => {});
+    if (originHandled) return;
 
     return next();
   });

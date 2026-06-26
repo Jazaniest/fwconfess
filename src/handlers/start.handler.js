@@ -25,7 +25,7 @@ export async function showMainMenu(ctx) {
   ];
 
   if (rankEnabled === '1') {
-    buttons.push([Markup.button.callback('🏆 Upgrade Rank', 'btn_upgrade_rank')]);
+    buttons.push([Markup.button.callback('🏆 Upgrade Rank', 'show_rank_menu')]);
   }
 
   buttons.push([Markup.button.callback('ℹ️ Bantuan', 'btn_help')]);

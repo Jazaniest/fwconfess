@@ -46,7 +46,7 @@ export async function showProfile(ctx, isEdit = false) {
   const profileText =
     `👤 *Profile Anda*\n\n` +
     `🆔 User ID: \`${userId}\`\n` +
-    `👤 Username: ${ctx.from.username ? `@${ctx.from.username}` : '_Tidak ada_'}\n` +
+    `👤 Username: ${ctx.from.username ? `@${ctx.from.username.replace(/_/g, '\\_')}` : '_Tidak ada_'}\n` +
     `📅 Bergabung: ${joinDate}\n` +
     `📝 Total Menfess: *${totalConfessions}*\n` +
     `🎯 Status: ${memberStatus}\n` +
@@ -65,6 +65,9 @@ export async function showProfile(ctx, isEdit = false) {
         [
           { text: '✏️ Edit Profile', callback_data: 'edit_profile' },
           { text: '🔒 Atur Privacy', callback_data: 'privacy_settings' }
+        ],
+        [
+          { text: '🏆 Upgrade Rank', callback_data: 'show_rank_menu' }
         ],
         [{ text: '🏠 Menu Utama', callback_data: 'back_to_main' }]
       ]

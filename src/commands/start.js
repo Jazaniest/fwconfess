@@ -15,24 +15,15 @@ export default function startCommand(bot) {
 
   async function membershipMiddleware(ctx, next) {
     const userId = ctx.from.id;
-
-    // Admin bypass membership check
-    if (adminSystem.isAdmin(userId)) {
-      console.log('👑 Admin bypassing membership check:', userId);
-      return next();
-    }
-
+    if (adminSystem.isAdmin(userId)) return next();
     const membershipStatus = await checkMembership(ctx, userId);
-
     if (!membershipStatus.isChannelMember || !membershipStatus.isGroupMember) {
       await showJoinRequirement(ctx, membershipStatus);
       return;
     }
-
     return next();
   }
 
-  // Handler untuk perintah /start dengan deteksi admin
   bot.start(async (ctx) => {
     const userId = ctx.from.id;
     console.log(`🚀 Start command from user: ${userId} (${ctx.from.first_name})`);
@@ -41,7 +32,7 @@ export default function startCommand(bot) {
     const payload = ctx.startPayload;
     if (payload) {
       const referrerId = parseInt(payload.trim(), 10);
-      if (!isNaN(referrerId) && referrerId !== userId) { // Pastikan tidak mereferensikan diri sendiri
+      if (!isNaN(referrerId) && referrerId !== userId) {
         ctx.session.referrerId = referrerId;
         console.log(`🔗 Referral code detected: ${referrerId} for new user ${userId}`);
       }
@@ -49,32 +40,20 @@ export default function startCommand(bot) {
     // -----------------------
 
     if (adminSystem.isAdmin(userId)) {
-      console.log('👑 Admin detected, showing admin menu');
-      await adminSystem.showAdminMenu(ctx);
-      return;
+      return adminSystem.showAdminMenu(ctx);
     }
 
     const membershipStatus = await checkMembership(ctx, userId);
-
     if (!membershipStatus.isChannelMember || !membershipStatus.isGroupMember) {
-      await showJoinRequirement(ctx, membershipStatus);
-      return;
+      return showJoinRequirement(ctx, membershipStatus);
     }
-
     await showMainMenu(ctx);
   });
 
   bot.command('menfess', privateChatOnly('Gunakan perintah /menfess di chat pribadi dengan bot.'), membershipMiddleware, async (ctx) => {
-    const userId = ctx.from.id;
-    console.log(`📣 Menfess command from user: ${userId}`);
-
-    await ctx.reply('📣 *Kirim Menfess*\n\nKlik tombol di bawah untuk mulai menulis confession kamu:', {
+    await ctx.reply('📣 *Kirim Menfess*...', {
       parse_mode: 'Markdown',
-      reply_markup: {
-        inline_keyboard: [
-          [Markup.button.callback('✍️ Tulis Menfess', 'btn_confess')]
-        ]
-      }
+      reply_markup: { inline_keyboard: [[Markup.button.callback('✍️ Tulis Menfess', 'btn_confess')]] }
     });
   });
 
