@@ -3,6 +3,7 @@
  * Phase 2: extracted from commands/database.js (standalone functions)
  */
 import { db } from '../services/db.js';
+import { formatMySqlDateTime } from '../utils/formatters.js';
 
 // ─── Dagetan ────────────────────────────────────────────────────────────────
 
@@ -11,7 +12,7 @@ export async function dbCreateDaget(title, winnerCount, ranks, drawAt, createdBy
     `INSERT INTO \`dagetan\`
       (\`title\`, \`winner_count\`, \`ranks\`, \`draw_at\`, \`created_by\`)
      VALUES (?, ?, ?, ?, ?)`,
-    [title, winnerCount, JSON.stringify(ranks), drawAt, createdBy]
+    [title, winnerCount, JSON.stringify(ranks), formatMySqlDateTime(drawAt), createdBy]
   );
   return result.insertId;
 }
