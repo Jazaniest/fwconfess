@@ -21,7 +21,7 @@ export function formatConfessionMessage(text, user) {
 
   const displayUsername = user.hide_username || !user.username
     ? '*xxxxx*'
-    : `@${user.username}`;
+    : `@${escMd(user.username)}`;
 
   const displayGender = user.hide_gender
     ? '*xxxxx*'
@@ -34,7 +34,7 @@ export function formatConfessionMessage(text, user) {
   const safeRank = user.rank || 'member';
 
   return `💭 *ANONYMOUS CONFESSION*\n\n` +
-    `${text}\n\n` +
+    `${escMd(text)}\n\n` +
     `━━━━━━━━━━━━━━━━━━━\n` +
     `👤 By: ${displayUsername}\n` +
     `${genderEmoji} Gender: ${displayGender}\n` +
@@ -57,7 +57,6 @@ export function getGenderEmoji(gender) {
 
 /**
  * Dapatkan emoji berdasarkan rank.
- * Gabungan mapping dari confess.js dan showme.js.
  */
 export function getRankEmoji(rank) {
   const rankEmojis = {
@@ -80,7 +79,6 @@ export function getRankEmoji(rank) {
 
 /**
  * Render template string dengan placeholder {key}.
- * Contoh: renderMsg('Halo {name}', { name: 'Dono' }) → 'Halo Dono'
  */
 export function renderMsg(template, vars = {}) {
   return Object.entries(vars).reduce(
@@ -109,11 +107,18 @@ export function formatDate(date) {
   }) + ' WIB';
 }
 
+/** Format Date ke string YYYY-MM-DD HH:MM:SS untuk MySQL */
+export function formatMySqlDateTime(date) {
+  return date.toISOString().slice(0, 19).replace('T', ' ');
+}
+
 // ─── Markdown helpers (dari daget.js) ───────────────────────────────────────
 
-/** Escape karakter Markdown Telegram */
+/** Escape karakter Markdown Telegram v2 (kurang agresif) */
 export function escMd(text) {
-  return String(text).replace(/[_*[\]()~`>#+=|{}.!\-]/g, '\\$&');
+  if (!text) return '';
+  return String(text)
+    .replace(/([_*\[\]()~`>#+=|{}.!-])/g, '\\$1');
 }
 
 /** Label rank untuk ditampilkan */

@@ -74,6 +74,7 @@ export class Database {
   static getActiveSessions             = ChatRepo.getActiveSessions;
   static getChatSessionByCode          = ChatRepo.getChatSessionByCode;
   static getChatSessionById            = ChatRepo.getChatSessionById;
+  static getTotalHitsReceived        = ChatRepo.getTotalHitsReceived;
   static saveAnonymousMessage          = ChatRepo.saveAnonymousMessage;
   static getChatHistory                = ChatRepo.getChatHistory;
   static checkRevealStatus             = ChatRepo.checkRevealStatus;
