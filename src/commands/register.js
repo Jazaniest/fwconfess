@@ -91,7 +91,7 @@ export default function registerCommand(bot) {
     await ctx.editMessageText(`Gender kamu: ${gender}.`)
 
     // Minta asal
-    await ctx.reply('Masukkan asal kamu (opsional). Bisa dikosongkan atau ketik `-` jika tidak ingin isi.')
+    await ctx.reply('Masukkan kota asal kamu (opsional). Bisa dikosongkan atau ketik `-` jika tidak ingin isi.')
   })
 
   async function handleRegisterText(ctx, next) {
