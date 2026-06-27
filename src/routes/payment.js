@@ -5,6 +5,7 @@ import { formatRupiah } from '../utils/formatters.js';
 import * as LeaderboardRepo from '../repositories/leaderboard.repo.js';
 import * as EconomyRepo from '../repositories/economy.repo.js';
 import * as UserRepo from '../repositories/user.repo.js';
+import { processReferralRewards } from '../services/referral.service.js';
 
 const COIN_PACKAGES = {
     'koin_10': { coins: 10, price: 10000 },
@@ -76,6 +77,9 @@ async function handleRankPurchase(bot, payload) {
 
         await UserRepo.updateUserRank(parseInt(userId), rank);
 
+        // [BARU] Proses reward referral setelah pembelian rank pertama
+        triggerReferralReward(parseInt(userId)).catch(e => console.error(`[REFERRAL_TRIGGER] Gagal memproses trigger referral: ${e.message}`));
+
         await bot.telegram.sendMessage(
             userId,
             `🎉 *Upgrade Berhasil!*\n\nSelamat, rank kamu sekarang adalah *${rank}*!`,
@@ -85,6 +89,46 @@ async function handleRankPurchase(bot, payload) {
         console.error(`❌ [RANK] Gagal memproses pembelian rank untuk user ${userId}:`, error);
     }
 }
+
+/**
+ * Memicu proses reward referral jika ini adalah pembelian pertama.
+ * @param {number} userId - ID Telegram pengguna yang membeli rank.
+ */
+async function triggerReferralReward(userId) {
+    try {
+        // 1. Cek apakah reward sudah pernah diberikan untuk user ini
+        const [existingPayouts] = await db.query(
+            'SELECT `id` FROM `referral_payouts` WHERE `new_user_id` = ? LIMIT 1',
+            [userId]
+        );
+
+        if (existingPayouts.length > 0) {
+            console.log(`[REFERRAL_TRIGGER] Reward untuk user ${userId} sudah pernah diproses. Skipping.`);
+            return;
+        }
+
+        // 2. Ambil data pengguna, terutama referrer_id
+        const user = await UserRepo.getUserById(userId);
+        if (!user || !user.referrer_id) {
+            console.log(`[REFERRAL_TRIGGER] User ${userId} tidak ditemukan atau tidak memiliki referrer. Skipping.`);
+            return;
+        }
+
+        console.log(`[REFERRAL_TRIGGER] Memicu reward referral untuk user ${userId} dengan referrer ${user.referrer_id}.`);
+
+        // 3. Panggil proses reward
+        // Kita membuat objek `newUser` yang kompatibel dengan `processReferralRewards`
+        const newUserPayload = {
+            telegram_id: user.telegram_id,
+            referrer_id: user.referrer_id
+        };
+        await processReferralRewards(newUserPayload);
+
+    } catch (error) {
+        console.error(`❌ [REFERRAL_TRIGGER] Error saat memicu referral reward untuk user ${userId}:`, error);
+    }
+}
+
 
 async function handleDonation(bot, payload) {
     console.log('❤️ [DONATION] Menerima webhook donasi...');

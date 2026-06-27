@@ -119,8 +119,8 @@ export default function registerCommand(bot) {
       }
 
       // Panggil proses referral reward di background (tidak perlu menunggu)
-      processReferralRewards({ telegram_id, referrer_id: referrerId })
-          .catch(e => console.error(`[REFERRAL] Background process error: ${e.message}`));
+      // processReferralRewards({ telegram_id, referrer_id: referrerId })
+      //     .catch(e => console.error(`[REFERRAL] Background process error: ${e.message}`));
 
       return ctx.reply('Pendaftaran berhasil! Kamu dapat mengirim menfess di /start.');
     } catch (error) {
