@@ -17,6 +17,8 @@ import { runWeeklyReset } from './jobs/weekly-reset.js';
 import searchCommand from './commands/search.js';
 import economyCommand from './commands/economy.js';
 import rankCommand from './commands/rank.js';
+import watchAdCommand from './commands/watchAd.js'; // [BARU]
+
 
 dotenv.config();
 
@@ -51,6 +53,7 @@ export async function startBot() {
   searchCommand(bot);
   economyCommand(bot);
   rankCommand(bot);
+  watchAdCommand(bot); // [BARU]
   bot.on('text', handleOriginText);
 
   // Handler teks global untuk alur percakapan
@@ -106,6 +109,10 @@ export async function startBot() {
     {
       command: 'donasi',
       description: 'Support bot dengan donasi'
+    },
+    {
+      command: 'tontoniklan',
+      description: 'Dapatkan menfess gratis'
     }
   ]);
 

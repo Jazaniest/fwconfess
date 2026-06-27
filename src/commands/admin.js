@@ -33,6 +33,7 @@ import {
   handleAdminRefEditPublicReward, handleAdminRefRewardCoFounder, handleAdminManageCoFounder,
   handleAdminAddCoFounder, handleAdminRemoveCoFounder,
   handleFeatureFlagsMenu, handleToggleMaintenance, handleToggleFeature,
+  handleAdminAdSettings, handleAdminAdSetLimit,
 } from '../handlers/admin/admin-settings.js';
 import {
   handleAdminBroadcast, handleAdminBroadcastPreview,
@@ -121,7 +122,15 @@ export default function adminPanel(bot, targetChannelId) {
   bot.action('admin_promote_user', adminMiddleware, (ctx) => handleAdminPromoteUser(ctx, adminInputState));
   bot.action(/^admin_do_promote_(\d+)_(.+)$/, adminMiddleware, (ctx) => handleAdminDoPromote(ctx, ctx.match[1], ctx.match[2]));
   bot.action('admin_referral_settings', adminMiddleware, (ctx) => handleAdminReferralSettings(ctx));
-  bot.action('admin_ref_toggle_feature', adminMiddleware, (ctx) => handleAdminReferralToggle(ctx));
+  bot.action('admin_ref_toggle_feature', adminMiddleware, async (ctx) => {
+    await ctx.answerCbQuery();
+    const key = 'feature_referral_enabled';
+    const current = configService.get(key, '0');
+    const newValue = current === '1' ? '0' : '1';
+    await configService.set(key, newValue);
+    await ctx.answerCbQuery(`Fitur referral ${newValue === '1' ? 'diaktifkan' : 'dinonaktifkan'}`);
+    await handleAdminReferralSettings(ctx); // Refresh menu
+  });
   bot.action('admin_ref_rewards_public', adminMiddleware, (ctx) => handleAdminRefRewardsPublic(ctx));
   bot.action(/^admin_ref_edit_public_(\d)$/, adminMiddleware, (ctx) => handleAdminRefEditPublicReward(ctx, parseInt(ctx.match[1]), adminInputState));
   bot.action('admin_ref_reward_cofounder', adminMiddleware, (ctx) => handleAdminRefRewardCoFounder(ctx, adminInputState));
@@ -134,6 +143,20 @@ export default function adminPanel(bot, targetChannelId) {
     await ctx.answerCbQuery(`✅ User ${userId} dihapus dari co-founder.`);
     await handleAdminManageCoFounder(ctx);
   });
+
+  // Watch Ad Settings
+  bot.action('admin_ad_settings', adminMiddleware, (ctx) => handleAdminAdSettings(ctx));
+  bot.action('admin_ad_set_limit', adminMiddleware, (ctx) => handleAdminAdSetLimit(ctx, adminInputState));
+  bot.action('admin_ad_toggle_feature', adminMiddleware, async (ctx) => {
+    await ctx.answerCbQuery();
+    const key = 'feature_watch_ad_enabled';
+    const current = configService.get(key, '0');
+    const newValue = current === '1' ? '0' : '1';
+    await configService.set(key, newValue);
+    await ctx.answerCbQuery(`Fitur tonton iklan ${newValue === '1' ? 'diaktifkan' : 'dinonaktifkan'}.`);
+    await handleAdminAdSettings(ctx); // Refresh menu
+  });
+
   bot.action('back_to_admin', adminMiddleware, async (ctx) => {
     await ctx.answerCbQuery('👑 Kembali ke Admin Panel...');
     await showAdminMenu(ctx);
@@ -206,6 +229,13 @@ export default function adminPanel(bot, targetChannelId) {
           adminInputState.delete(userId);
           await ctx.reply(`✅ User \`${targetId}\` telah dijadikan co-founder.`);
           await handleAdminManageCoFounder(ctx);
+      } else if (state.action === 'set_ad_limit') {
+        const val = parseInt(text, 10);
+        if (isNaN(val) || val < 0 || val > 100) return ctx.reply('❌ Masukkan angka antara 0 sampai 100.');
+        await Database.setConfig('ads_watch_daily_limit', val.toString());
+        adminInputState.delete(userId);
+        await ctx.reply(`✅ *Batas harian tonton iklan diperbarui: ${val} kali*`, { parse_mode: 'Markdown' });
+        await handleAdminAdSettings(ctx);
       }
       // ... sisa text handler
     } catch (error) {

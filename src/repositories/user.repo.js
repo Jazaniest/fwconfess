@@ -6,7 +6,7 @@ import { db } from '../services/db.js';
 
 export async function getUserById(telegramId) {
   const [rows] = await db.query(
-    'SELECT `telegram_id`, `rank`, `gender`, `origin`, `username`, `hide_username`, `hide_gender`, `hide_origin` FROM `users` WHERE `telegram_id` = ?',
+    'SELECT `telegram_id`, `rank`, `gender`, `origin`, `username`, `hide_username`, `hide_gender`, `hide_origin`, `free_menfess_balance`, `referrer_id` FROM `users` WHERE `telegram_id` = ?',
     [telegramId]
   );
   return rows[0] || null;
@@ -213,5 +213,19 @@ export async function setUserCoFounderStatus(userId, status) {
   await db.query(
     'UPDATE `users` SET `is_cofounder` = ? WHERE `telegram_id` = ?',
     [isCoFounder, userId]
+  );
+}
+
+export async function incrementFreeMenfessBalance(telegramId, amount = 1) {
+  await db.query(
+    'UPDATE `users` SET `free_menfess_balance` = `free_menfess_balance` + ? WHERE `telegram_id` = ?',
+    [amount, telegramId]
+  );
+}
+
+export async function decrementFreeMenfessBalance(telegramId, amount = 1) {
+  await db.query(
+    'UPDATE `users` SET `free_menfess_balance` = GREATEST(0, `free_menfess_balance` - ?) WHERE `telegram_id` = ?',
+    [amount, telegramId]
   );
 }

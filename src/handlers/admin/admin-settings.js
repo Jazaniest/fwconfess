@@ -24,6 +24,9 @@ export async function handleAdminSettings(ctx) {
             { text: '🤝 Referral', callback_data: 'admin_referral_settings' }
           ],
           [
+            { text: '🎬 Tonton Iklan', callback_data: 'admin_ad_settings' }
+          ],
+          [
             { text: '🏠 Kembali', callback_data: 'back_to_admin' }
           ]
         ]
@@ -245,9 +248,9 @@ export async function handleAdminRankSettings(ctx) {
 }
 
 export async function handleAdminRankToggle(ctx) {
-  const current = await Database.getConfig('rank_system_enabled', '0');
+  const current = configService.get('rank_system_enabled', '0');
   const newVal = current === '1' ? '0' : '1';
-  await Database.setConfig('rank_system_enabled', newVal);
+  await configService.set('rank_system_enabled', newVal);
 
   await ctx.editMessageText(
     `✅ Sistem rank berhasil *${newVal === '1' ? 'diaktifkan' : 'dinonaktifkan'}*.`,
@@ -389,6 +392,54 @@ export async function handleAdminDoPromote(ctx, targetId, newRank) {
 }
 
 // ─── Referral Settings ──────────────────────────────────────────────────────
+
+/**
+ * Menampilkan menu pengaturan untuk fitur Tonton Iklan.
+ */
+export async function handleAdminAdSettings(ctx) {
+  await ctx.answerCbQuery();
+
+  const isEnabled = await Database.getConfig('feature_watch_ad_enabled', '0') === '1';
+  const dailyLimit = await Database.getConfig('ads_watch_daily_limit', '3');
+
+  const text = `🎬 *Pengaturan Tonton Iklan*\n\n` +
+    `Fitur ini memungkinkan user mendapatkan menfess gratis dengan menonton iklan.\n\n` +
+    `Status saat ini: *${isEnabled ? '✅ AKTIF' : '❌ NONAKTIF'}*\n` +
+    `Batas tonton per user per hari: *${dailyLimit} kali*`;
+
+  const buttons = [
+    [{ text: isEnabled ? '🔴 Nonaktifkan Fitur' : '🟢 Aktifkan Fitur', callback_data: 'admin_ad_toggle_feature' }],
+    [{ text: '✏️ Ubah Batas Harian', callback_data: 'admin_ad_set_limit' }],
+    [{ text: '🏠 Kembali', callback_data: 'admin_settings' }]
+  ];
+
+  await ctx.editMessageText(text, {
+    parse_mode: 'Markdown',
+    reply_markup: { inline_keyboard: buttons }
+  });
+}
+
+/**
+ * Menangani permintaan untuk mengubah batas harian tonton iklan.
+ */
+export async function handleAdminAdSetLimit(ctx, adminInputState) {
+  await ctx.answerCbQuery();
+  const dailyLimit = await Database.getConfig('ads_watch_daily_limit', '3');
+
+  adminInputState.set(ctx.from.id, { action: 'set_ad_limit' });
+
+  await ctx.editMessageText(
+    `✏️ *Ubah Batas Tonton Iklan Harian*\n\n` +
+    `Batas saat ini: *${dailyLimit} kali* per user per hari.\n\n` +
+    `Kirimkan angka baru untuk batas harian.\nContoh: \`5\`\n\n` +
+    `_Ketik /cancel untuk membatalkan_`,
+    {
+      parse_mode: 'Markdown',
+      reply_markup: { inline_keyboard: [[{ text: '❌ Batal', callback_data: 'admin_ad_settings' }]] }
+    }
+  );
+}
+
 
 export async function handleAdminReferralSettings(ctx) {
   const isEnabled = await Database.getConfig('feature_referral_enabled', '0') === '1';
