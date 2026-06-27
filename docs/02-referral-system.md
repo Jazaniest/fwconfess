@@ -46,8 +46,8 @@ Tabel ini berfungsi sebagai log audit untuk setiap transaksi reward referral yan
 
 Logika utama berada di `src/services/referral.service.js`.
 
-1.  **Pemicu:** Fungsi `processReferralRewards` dipanggil secara asinkron setelah pengguna baru berhasil disimpan ke database.
-2.  **Reward Publik (5 Level):** Sistem akan melakukan loop ke atas dari pengguna baru, mencari `referrer_id` hingga 5 level. Untuk setiap level, sistem akan memberikan reward koin sesuai konfigurasi di tabel `referral_rewards`.
+1.  **Pemicu:** Fungsi `processReferralRewards` dipanggil secara asinkron setelah seorang pengguna **melakukan pembelian rank untuk pertama kalinya**. Logika pemicu ini berada di `src/routes/payment.js` dalam fungsi `handleRankPurchase`. Sistem akan memverifikasi bahwa ini adalah pembelian pertama dengan memeriksa tabel `referral_payouts`.
+2.  **Reward Publik (5 Level):** Sistem akan melakukan loop ke atas dari pengguna yang membeli rank, mencari `referrer_id` hingga 5 level. Untuk setiap level, sistem akan memberikan reward koin sesuai konfigurasi di tabel `referral_rewards`.
 3.  **Reward Co-founder (Tak Terbatas):** Setelah 5 level, sistem akan terus mencari ke atas. Jika ditemukan upline dengan flag `is_cofounder = 1`, upline tersebut akan menerima reward khusus (dikonfigurasi di `bot_config`) dan pencarian berhenti.
 4.  **Pencatatan:** Setiap koin yang berhasil diberikan akan dicatat di tabel `referral_payouts`.
 
