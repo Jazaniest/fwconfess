@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-07-22T10:43:22.480Z",
+  "timestamp": "2026-07-22T11:43:22.556Z",
   "projectRoot": "C:\\Users\\ASUS\\OneDrive\\Desktop\\startup\\FWB-CONFESS",
   "structure": {
     "hasPackageJson": true,
@@ -7,5 +7,5 @@
     "hasClaudeConfig": true,
     "hasClaudeFlow": true
   },
-  "scannedAt": 1784717002481
+  "scannedAt": 1784720602556
 }

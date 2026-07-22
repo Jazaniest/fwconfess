@@ -5,16 +5,18 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "vitest --run"
+    "test": "vitest --run",
+    "hash-password": "node -e \"const bcrypt=require('bcrypt'); bcrypt.hash(process.argv[1], 10).then(console.log)\""
   },
   "keywords": [],
   "author": "jzxyzx",
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.6",
-    "csurf": "^1.11.0",
+    "csurf": "^1.2.2",
     "date-fns": "^3.6.0",
     "dotenv": "^17.2.1",
     "ejs": "^3.1.10",
@@ -27,6 +29,6 @@
   },
   "devDependencies": {
     "supertest": "^7.0.0",
-    "vitest": "^2.0.4"
+    "vitest": "^4.1.10"
   }
 }
