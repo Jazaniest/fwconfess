@@ -238,6 +238,7 @@ export async function handleAdminRankSettings(ctx) {
         inline_keyboard: [
           [{ text: isEnabled ? '🔴 Nonaktifkan Rank' : '🟢 Aktifkan Rank', callback_data: 'admin_rank_toggle' }],
           [{ text: '⚙️ Atur Limit per Rank', callback_data: 'admin_rank_limits' }],
+          [{ text: '🛠️ Kelola Definisi Rank', callback_data: 'admin_rank_management' }],
           [{ text: '💰 Ubah Harga Rank', callback_data: 'admin_rank_prices' }],
           [{ text: '👑 Promote User', callback_data: 'admin_promote_user' }],
           [{ text: '🏠 Kembali', callback_data: 'admin_settings' }]
@@ -272,7 +273,7 @@ export async function handleAdminRankLimits(ctx) {
 
   const buttons = ranks.map(r => ([{
     text: `${r.is_active ? '✅' : '❌'} ${r.rank}`,
-    callback_data: `admin_rank_edit_${r.rank}`
+    callback_data: `admin_rank_limit_edit_${r.rank}`
   }]));
   buttons.push([{ text: '🏠 Kembali', callback_data: 'admin_rank_settings' }]);
 
@@ -282,9 +283,9 @@ export async function handleAdminRankLimits(ctx) {
   });
 }
 
-export async function handleAdminRankEdit(ctx, rank) {
+export async function handleAdminRankLimitEdit(ctx, rank) {
   const ranks = await Database.getAllRankLimits();
-  const rankData = ranks.find(r => r.rank === rank);
+  const rankData = ranks.find(r => r.rank.trim() === rank);
   if (!rankData) return ctx.reply('❌ Rank tidak ditemukan.');
 
   await ctx.editMessageText(
@@ -469,7 +470,9 @@ export async function handleAdminReferralToggle(ctx) {
 }
 
 export async function handleAdminRefRewardsPublic(ctx) {
-  await ctx.answerCbQuery();
+  if (ctx.callbackQuery) {
+    await ctx.answerCbQuery();
+  }
   const rewards = await Database.getAllReferralRewards();
   let text = '💰 *Ubah Reward Referral Publik*\n\n';
   rewards.sort((a,b) => a.level - b.level).forEach(r => {
@@ -483,10 +486,16 @@ export async function handleAdminRefRewardsPublic(ctx) {
   }]));
   buttons.push([{ text: '🔙 Kembali', callback_data: 'admin_referral_settings' }]);
 
-  await ctx.editMessageText(text, {
+  const messageOptions = {
     parse_mode: 'Markdown',
     reply_markup: { inline_keyboard: buttons }
-  });
+  };
+
+  if (ctx.callbackQuery) {
+    await ctx.editMessageText(text, messageOptions);
+  } else {
+    await ctx.reply(text, messageOptions);
+  }
 }
 
 export async function handleAdminRefEditPublicReward(ctx, level, adminInputState) {

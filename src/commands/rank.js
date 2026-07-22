@@ -49,7 +49,55 @@ export default function rankCommand(bot) {
         await showRankMenu(ctx);
     });
 
-    bot.action(/^buy_rank_coin_(.+)$/, privateChatOnly(), async (ctx) => {
-        // ...
+    bot.action(/^buy_rank_coin_(\\d+)$/, privateChatOnly(), async (ctx) => {
+        const rankId = parseInt(ctx.match[1]);
+        const userId = ctx.from.id;
+
+        try {
+            await ctx.answerCbQuery(' memproses...');
+
+            const rank = await RankRepo.getRankById(rankId);
+            if (!rank) {
+                return ctx.reply('❌ Rank tidak valid atau sudah tidak tersedia.');
+            }
+
+            const wallet = await EconomyRepo.getWallet(userId);
+            if (wallet.balance < rank.price_coins) {
+                return ctx.editMessageText(
+                    `⚠️ *Gagal Membeli Rank*\n\nKoin kamu tidak cukup untuk membeli rank *${rank.name}*.\n` +
+                    `Harga: ${rank.price_coins} 🪙\n` +
+                    `Saldo kamu: ${wallet.balance} 🪙\n\n` +
+                    `Silakan top up koin terlebih dahulu.`,
+                    { parse_mode: 'Markdown' }
+                );
+            }
+
+            // Spend coins
+            await EconomyRepo.spendCoins(userId, rank.price_coins);
+
+            // Assign rank
+            let expiresAt = null;
+            let successMessage = `🎉 *Upgrade Berhasil!*\n\nSelamat, rank kamu sekarang adalah *${rank.name}* (Permanen)!`;
+
+            if (rank.type === 'subscription') {
+                expiresAt = new Date(Date.now() + rank.duration_days * 24 * 60 * 60 * 1000);
+                const formattedDate = expiresAt.toLocaleString('id-ID', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                successMessage = `🎉 *Upgrade Berhasil!*\n\nSelamat, kamu telah berlangganan rank *${rank.name}*!\nRank ini akan aktif hingga: *${formattedDate}*.`;
+            }
+
+            await UserRepo.assignRank({ userId, rankId, expiresAt });
+
+            await ctx.editMessageText(successMessage, { parse_mode: 'Markdown' });
+
+        } catch (error) {
+            console.error(`❌ Gagal memproses pembelian rank via koin untuk user ${userId}:`, error);
+            await ctx.reply('❌ Terjadi kesalahan saat memproses pembelian. Silakan coba lagi.');
+        }
     });
 }

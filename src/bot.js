@@ -14,10 +14,13 @@ import { badgeEnforcer } from './middleware/badge-enforcer.js';
 import leaderboardCommand from './commands/leaderboard.js';
 import schedule from 'node-schedule';
 import { runWeeklyReset } from './jobs/weekly-reset.js';
+import { handleExpiredSubscriptions } from './jobs/subscription-cleanup.js';
 import searchCommand from './commands/search.js';
 import economyCommand from './commands/economy.js';
 import rankCommand from './commands/rank.js';
-import watchAdCommand from './commands/watchAd.js'; // [BARU]
+import watchAdCommand from './commands/watchAd.js';
+import { ChatManager } from './handlers/chat/chat-manager.js';
+import { RequestManager } from './handlers/chat/request-manager.js';
 
 
 dotenv.config();
@@ -53,13 +56,13 @@ export async function startBot() {
   searchCommand(bot);
   economyCommand(bot);
   rankCommand(bot);
-  watchAdCommand(bot); // [BARU]
+  watchAdCommand(bot);
   bot.on('text', handleOriginText);
 
   // Handler teks global untuk alur percakapan
   bot.on('text', async (ctx, next) => {
-    if (chatManager.isUserInChat(ctx.from.id)) {
-      return chatManager.sendAnonymousMessage(ctx, ctx.from.id, ctx.message.text);
+    if (await chatManager.isUserInChat(ctx.from.id)) {
+        return chatManager.sendAnonymousMessage(ctx, ctx.from.id, ctx.message.text);
     }
     if (ctx.session?.registration?.gender && !ctx.session?.registration?.done) {
       return register.handleRegisterText(ctx, next);
@@ -136,6 +139,25 @@ export async function startBot() {
     runWeeklyReset(bot, process.env.DISCUSSION_GROUP_ID);
   });
   console.log('🗓️ Job reset mingguan telah dijadwalkan setiap Senin pukul 00:01.');
+
+  // Jadwalkan pembersihan langganan yang kedaluwarsa
+  schedule.scheduleJob('0 1 * * *', () => {
+    console.log('⏰ Menjalankan job pembersihan langganan...');
+    handleExpiredSubscriptions(bot);
+  });
+  console.log('🗓️ Job pembersihan langganan telah dijadwalkan setiap hari pukul 01:00.');
+
+  // [BARU] Jadwalkan pembersihan sesi chat dan request
+  schedule.scheduleJob('*/5 * * * *', async () => {
+      console.log('⏰ Menjalankan job pembersihan sesi chat dan request...');
+      try {
+        await ChatManager.cleanupInactiveSessions();
+        await RequestManager.cleanupExpiredRequests();
+      } catch(e) {
+        console.error("Gagal menjalankan cleanup job:", e);
+      }
+  });
+  console.log('🗓️ Job pembersihan sesi & request telah dijadwalkan setiap 5 menit.');
 
 
   console.log('🤖 Bot menfess sudah berjalan (polling)');

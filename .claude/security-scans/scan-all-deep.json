@@ -1,0 +1,69 @@
+{
+  "timestamp": "2026-07-22T06:19:07.819Z",
+  "target": ".",
+  "depth": "deep",
+  "type": "all",
+  "summary": {
+    "critical": 1,
+    "high": 2,
+    "medium": 3,
+    "low": 3,
+    "total": 9
+  },
+  "findings": [
+    {
+      "severity": "MEDIUM",
+      "type": "Dependency CVE",
+      "location": "package.json:@vitest/mocker",
+      "description": "Vulnerability"
+    },
+    {
+      "severity": "LOW",
+      "type": "Dependency CVE",
+      "location": "package.json:body-parser",
+      "description": "body-parser vulnerable to denial of"
+    },
+    {
+      "severity": "HIGH",
+      "type": "Dependency CVE",
+      "location": "package.json:brace-expansion",
+      "description": "brace-expansion: DoS via exponentia"
+    },
+    {
+      "severity": "LOW",
+      "type": "Dependency CVE",
+      "location": "package.json:cookie",
+      "description": "cookie accepts cookie name, path, a"
+    },
+    {
+      "severity": "LOW",
+      "type": "Dependency CVE",
+      "location": "package.json:csurf",
+      "description": "Vulnerability"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "Dependency CVE",
+      "location": "package.json:esbuild",
+      "description": "esbuild enables any website to send"
+    },
+    {
+      "severity": "HIGH",
+      "type": "Dependency CVE",
+      "location": "package.json:vite",
+      "description": "Vite Vulnerable to Path Traversal i"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "Dependency CVE",
+      "location": "package.json:vite-node",
+      "description": "Vulnerability"
+    },
+    {
+      "severity": "CRITICAL",
+      "type": "Dependency CVE",
+      "location": "package.json:vitest",
+      "description": "Vulnerability"
+    }
+  ]
+}

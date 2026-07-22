@@ -1,13 +1,12 @@
 /**
  * Confess command — entry point, hanya registrasi handler ke bot.
- * Business logic ada di handlers/confession.handler.js
  */
 import { Markup } from 'telegraf';
-import { Database } from './database.js';
+import * as UserRepo from '../repositories/user.repo.js';
+import * as ConfessionRepo from '../repositories/confession.repo.js';
 import commentHandler from '../handlers/comment/comment.js';
 import showMeHandler from '../handlers/showme/showme.js';
 import reportHandler from '../handlers/report/report.js';
-import { renderMsg } from '../utils/formatters.js';
 import { createConfessionHandler } from '../handlers/confession.handler.js';
 import { privateChatOnly } from '../middleware/private-chat-only.js';
 
@@ -19,72 +18,60 @@ import { privateChatOnly } from '../middleware/private-chat-only.js';
 export default function confessCommand(bot, targetChannelId, chatManager) {
   if (!targetChannelId) {
     throw new Error(
-      '❌ KONFIG ERROR: TARGET_CHANNEL_ID tidak di-set di environment variables!\n' +
-      'Tambahkan TARGET_CHANNEL_ID ke file .env kamu.'
+      '❌ KONFIG ERROR: TARGET_CHANNEL_ID tidak di-set di environment variables!'
     );
   }
 
-  const pending = new Map();
   const commentSystem = commentHandler(bot, process.env.DISCUSSION_GROUP_ID);
   const showMeSystem = showMeHandler(bot, chatManager);
   const reportSystem = reportHandler(bot, targetChannelId);
 
+  // createConfessionHandler sekarang tidak lagi butuh `pendingMap`
   const { handleConfessText, getRateLimitConfig } = createConfessionHandler(
-    pending, targetChannelId, commentSystem, showMeSystem, reportSystem
+    targetChannelId, commentSystem, showMeSystem, reportSystem
   );
 
   console.log('🚀 Confess command initialized with channel:', targetChannelId);
-  console.log('💬 Discussion group ID:', process.env.DISCUSSION_GROUP_ID);
-  console.log('💬 Comment system enabled:', commentSystem.isCommentSystemEnabled());
 
   // Tombol Kirim Menfess
   bot.action('btn_confess', privateChatOnly('Proses mengirim menfess hanya bisa dilakukan di chat pribadi.'), async (ctx) => {
     try {
-      console.log('🔘 Button confess clicked by user:', ctx.from.id);
       await ctx.answerCbQuery();
       const userId = ctx.from.id;
 
-      const user = await Database.getUserById(userId);
+      if (ctx.session.isWritingConfession) {
+        return ctx.reply('❌ Kamu sudah dalam mode mengirim menfess. Kirim menfess kamu atau ketik /cancel.');
+      }
+
+      const user = await UserRepo.getUserById(userId);
       if (!user) {
-        console.log('❌ User not registered:', userId);
         return ctx.reply(
-          '❌ Kamu belum terdaftar!\n\n' +
-          'Silakan daftar terlebih dahulu untuk bisa mengirim menfess.',
+          '❌ Kamu belum terdaftar! Silakan daftar terlebih dahulu.',
           Markup.inlineKeyboard([
-            [Markup.button.callback('📝 Daftar Sekarang', 'btn_register')],
-            [Markup.button.callback('🏠 Kembali ke Menu', 'btn_back_to_start')]
+            [Markup.button.callback('📝 Daftar Sekarang', 'btn_register')]
           ])
         );
       }
 
-      // Check rate limit
-      const now = Date.now();
-      const rlCfg = await getRateLimitConfig(userId);
-      const recentCount = await Database.countRecentConfessions(userId, rlCfg.windowMs);
-      if (recentCount >= rlCfg.maxCount) {
-        const oldestInWindow = await Database.getLastConfessionTime(userId, rlCfg.windowMs);
-        const nextAllowed = new Date(oldestInWindow.getTime() + rlCfg.windowMs);
-        console.log('🚫 Rate limit hit for user:', userId);
-        return ctx.reply(
-          renderMsg(rlCfg.msgHit, {
-            count: rlCfg.maxCount,
-            hours: rlCfg.windowHours,
-            next_time: nextAllowed.toLocaleString('id-ID'),
-          }),
-          { parse_mode: 'Markdown' }
-        );
+      // Pindahkan Rate limit check ke dalam handler, tapi kita bisa lakukan pre-check di sini
+      // untuk memberikan feedback lebih cepat jika menfess gratis tidak tersedia.
+      if (user.free_menfess_balance <= 0) {
+        const rlCfg = await getRateLimitConfig(userId);
+        const recentCount = await ConfessionRepo.countRecentConfessions(userId, rlCfg.windowMs);
+        if (recentCount >= rlCfg.maxCount) {
+           return ctx.reply('⏰ Kamu sudah mencapai batas maksimal mengirim menfess untuk rank kamu. Coba lagi nanti.');
+        }
       }
 
-      pending.set(userId, { timestamp: now, user });
-      console.log('📝 User added to pending list:', userId);
+      ctx.session.isWritingConfession = true;
+      ctx.session.confessionUser = user;
 
       const instructionText = '📝 *Kirim Menfess*\n\n' +
         'Silakan ketik dan kirim langsung menfess kamu di sini.\n\n' +
-        'Kamu bisa menyertakan hingga 3 tag (contoh: `#curhat`, `#random`) langsung di dalam pesanmu, dan bot akan mendeteksinya secara otomatis.\n\n' +
+        'Kamu bisa menyertakan hingga 3 tag (contoh: `#curhat`).\n\n' +
         '⚠️ *Perhatian:*\n' +
-        '• Menfess akan ditampilkan secara anonim, namun menyertakan gender dan rank kamu.\n' +
-        '• Pengguna lain dapat mengajakmu ngobrol via "Hit Me".\n' +
-        '• Jaga sopan santun dan patuhi aturan.\n\n' +
+        '• Menfess akan ditampilkan secara anonim.\n' +
+        '• Pengguna lain dapat mengajakmu ngobrol via "Hit Me".\n\n' +
         '💡 Ketik `/cancel` untuk membatalkan.';
 
       await ctx.reply(instructionText, { parse_mode: 'Markdown' });
@@ -97,40 +84,17 @@ export default function confessCommand(bot, targetChannelId, chatManager) {
 
   // Command untuk cancel confession
   bot.command('cancel', privateChatOnly(), async (ctx) => {
-    const userId = ctx.from.id;
-    if (pending.has(userId)) {
-      pending.delete(userId);
-      await ctx.reply('❌ Confession dibatalkan.');
+    if (ctx.session.isWritingConfession) {
+      delete ctx.session.isWritingConfession;
+      delete ctx.session.confessionUser;
+      await ctx.reply('❌ Pengiriman menfess dibatalkan.');
     } else {
-      await ctx.reply('❌ Tidak ada confession yang sedang dibuat.');
-    }
-  });
-
-  // Debug commands
-  bot.command('debug_pending', async (ctx) => {
-    if (ctx.from.id === parseInt(process.env.ADMIN_ID)) {
-      const pendingList = Array.from(pending.entries()).map(([id, data]) =>
-        `${id}: ${data.user.gender || 'Unknown'} - ${new Date(data.timestamp).toLocaleString()}`
-      );
-      await ctx.reply(`Pending users:\n${pendingList.join('\n') || 'None'}`);
+      await ctx.reply('❌ Tidak ada proses menfess yang sedang berlangsung.');
     }
   });
 
   return {
     handleConfessText,
-    isUserPending: (userId) => pending.has(userId),
-    getPendingUsers: () => Array.from(pending.keys()),
-    clearPending: (userId) => pending.delete(userId),
-    forceAddPending: async (userId) => {
-      const user = await Database.getUserById(userId);
-      if (user) {
-        pending.set(userId, { timestamp: Date.now(), user });
-        return true;
-      }
-      return false;
-    },
-    commentSystem,
-    showMeSystem,
-    reportSystem
+    isUserPending: (ctx) => !!ctx.session.isWritingConfession,
   };
 }

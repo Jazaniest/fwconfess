@@ -25,7 +25,6 @@ export default function hitMeCommand(bot) {
   console.log('Managers created, setting up handlers...');
 
   requestManager.setupHandlers();
-  chatManager.setupMessageHandler();
   revealManager.setupHandlers();
   setupChatManagementHandlers(bot, chatManager);
   setupAdminHandlers(bot, chatManager, requestManager);
@@ -413,19 +412,14 @@ function setupAdminHandlers(bot, chatManager, requestManager) {
 
 // ─── Cleanup Interval ─────────────────────────────────────────────────────────
 
-function setupCleanup(chatManager, requestManager) {
+function setupCleanup() {
   setInterval(async () => {
     try {
-      await requestManager.cleanupExpiredRequests();
-      await chatManager.cleanupInactiveSessions();
-      console.log(
-        'Cleanup completed - Active sessions:',
-        chatManager.getActiveSessionCount(),
-        'Pending requests:',
-        requestManager.getPendingRequestCount()
-      );
+      await RequestManager.cleanupExpiredRequests();
+      await ChatManager.cleanupInactiveSessions();
+      console.log('Cleanup job completed successfully.');
     } catch (error) {
-      console.error('Error in cleanup:', error);
+      console.error('Error in cleanup job:', error);
     }
   }, 5 * 60 * 1000); // Setiap 5 menit
 }
